@@ -1,0 +1,11 @@
+/**
+ * Bootstrap 5.0.2 core — configuration + reboot only.
+ * Full component styles live in bootstrap-full.scss for later UI phases.
+ */
+
+@import 'bootstrap/scss/functions';
+@import 'bootstrap/scss/variables';
+@import 'bootstrap/scss/mixins';
+@import 'bootstrap/scss/utilities';
+@import 'bootstrap/scss/root';
+@import 'bootstrap/scss/reboot';

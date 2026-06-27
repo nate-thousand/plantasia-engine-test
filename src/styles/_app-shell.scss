@@ -1,0 +1,44 @@
+.plantasia-app-shell {
+  background-color: var(--plantasia-color-background);
+  color: var(--plantasia-color-text-primary);
+}
+
+.plantasia-section + .plantasia-section {
+  padding-top: 0.25rem;
+}
+
+.plantasia-status-card,
+.plantasia-ascii-card {
+  background-color: var(--plantasia-color-surface);
+  border: 1px solid var(--plantasia-color-border);
+}
+
+.plantasia-status-badge {
+  background-color: var(--plantasia-color-surface-elevated);
+  color: var(--plantasia-color-text-secondary);
+  font-family: var(--plantasia-font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+.plantasia-ascii-preview {
+  background-color: var(--plantasia-color-surface-elevated);
+  border: 1px solid var(--plantasia-color-border);
+  border-radius: var(--plantasia-radius-md);
+  color: var(--plantasia-color-organism);
+  font-family: var(--plantasia-font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  overflow-x: auto;
+  padding: 1rem;
+  white-space: pre;
+}
+
+.plantasia-app-shell .btn-outline-primary {
+  --bs-btn-color: var(--plantasia-color-primary);
+  --bs-btn-border-color: var(--plantasia-color-border);
+  --bs-btn-disabled-color: var(--plantasia-color-text-secondary);
+  --bs-btn-disabled-border-color: var(--plantasia-color-border);
+}

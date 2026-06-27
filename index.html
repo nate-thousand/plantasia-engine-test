@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plantasia Engine Test</title>
+    <style>
+      html,
+      body,
+      #root {
+        margin: 0;
+        min-height: 100%;
+      }
+
+      body {
+        background-color: #081009;
+        color: #e7f2df;
+        font-family: system-ui, sans-serif;
+      }
+
+      .boot-panel {
+        padding: 1rem;
+        max-width: 40rem;
+        line-height: 1.5;
+      }
+
+      .boot-panel h1 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0 0 0.5rem;
+      }
+
+      .boot-panel p {
+        margin: 0 0 0.75rem;
+        opacity: 0.9;
+      }
+
+      .boot-panel code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.875rem;
+      }
+
+      .boot-panel ol {
+        margin: 0;
+        padding-left: 1.25rem;
+      }
+
+      .boot-panel li {
+        margin-bottom: 0.35rem;
+      }
+    </style>
+    <script>
+      (function () {
+        var DEV_URL = 'http://localhost:5270/';
+        var STATIC_SERVER_PORTS = ['5500', '5501', '5502', '8080', '8888', '3000'];
+
+        function showBootHelp(title, message, steps) {
+          var root = document.getElementById('root');
+          if (!root || document.getElementById('plantasia-app')) return;
+
+          var stepsHtml = steps
+            ? '<ol>' + steps.map(function (step) {
+                return '<li>' + step + '</li>';
+              }).join('') + '</ol>'
+            : '';
+
+          root.innerHTML =
+            '<div class="boot-panel">' +
+            '<h1>' + title + '</h1>' +
+            '<p>' + message + '</p>' +
+            stepsHtml +
+            '<p>Then open <code>' + DEV_URL + '</code></p>' +
+            '</div>';
+        }
+
+        window.plantasiaShowBootHelp = showBootHelp;
+
+        if (window.location.protocol === 'file:') {
+          showBootHelp(
+            'Dev server required',
+            'Do not open this HTML file directly.',
+            [
+              'Open a terminal in <code>plantasia-engine-test</code>',
+              'Run <code>npm run dev</code>',
+            ],
+          );
+          return;
+        }
+
+        if (STATIC_SERVER_PORTS.indexOf(window.location.port) !== -1) {
+          showBootHelp(
+            'Live Server cannot run this app',
+            'Port ' + window.location.port + ' is a static file server. It cannot compile TypeScript or SCSS.',
+            [
+              'Stop Live Server (or close this tab)',
+              'Open a terminal in <code>plantasia-engine-test</code>',
+              'Run <code>npm run dev</code>',
+            ],
+          );
+          return;
+        }
+
+        window.__PLANTASIA_BOOT__ = async function () {
+          try {
+            var viteCheck = await fetch('/@vite/client', { method: 'HEAD' });
+            if (!viteCheck.ok) {
+              showBootHelp(
+                'Wrong server',
+                'This URL is not the Vite dev server.',
+                [
+                  'Open a terminal in <code>plantasia-engine-test</code>',
+                  'Run <code>npm run dev</code>',
+                ],
+              );
+              return;
+            }
+
+            await import('/src/main.tsx');
+          } catch (error) {
+            var message =
+              error instanceof Error ? error.message : 'Unknown module load error.';
+            showBootHelp('App failed to load', message, [
+              'Run <code>npm run dev</code> in <code>plantasia-engine-test</code>',
+            ]);
+          }
+        };
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      window.__PLANTASIA_BOOT__?.();
+    </script>
+  </body>
+</html>

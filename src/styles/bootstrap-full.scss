@@ -1,0 +1,9 @@
+/**
+ * Full Bootstrap 5.0.2 component bundle — import when building UI.
+ * Not loaded during foundation boot to keep startup fast.
+ */
+
+@import '../tokens/css-variables';
+@import '../tokens/bootstrap-variables';
+@import 'bootstrap/scss/bootstrap';
+@import 'bootstrap-theme';

@@ -1,0 +1,40 @@
+/**
+ * Plantasia design tokens — CSS custom properties.
+ *
+ * This file establishes the theme variable structure only.
+ * Populate values as the design system is defined in docs/design/.
+ */
+
+:root {
+  /* Color — surfaces */
+  --plantasia-color-background: #081009;
+  --plantasia-color-surface: #0c120d;
+  --plantasia-color-surface-elevated: #0f1b10;
+  --plantasia-color-border: rgba(183, 220, 166, 0.2);
+
+  /* Color — text */
+  --plantasia-color-text-primary: #e7f2df;
+  --plantasia-color-text-secondary: #8b9f8c;
+
+  /* Color — semantic */
+  --plantasia-color-primary: #7fd88f;
+  --plantasia-color-accent: #80d8c3;
+  --plantasia-color-organism: #7fd88f;
+
+  /* Typography */
+  --plantasia-font-sans: system-ui, sans-serif;
+  --plantasia-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Spacing */
+  --plantasia-space-unit: 1rem;
+
+  /* Radius */
+  --plantasia-radius-sm: 0.125rem;
+  --plantasia-radius-md: 0.25rem;
+  --plantasia-radius-lg: 0.75rem;
+
+  /* Motion */
+  --plantasia-duration-fast: 120ms;
+  --plantasia-duration-normal: 240ms;
+  --plantasia-duration-slow: 480ms;
+}

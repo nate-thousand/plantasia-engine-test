@@ -1,0 +1,30 @@
+{
+  "name": "plantasia-engine-test",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "start": "vite",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b --noEmit",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "bootstrap": "5.0.2",
+    "plantasia-sound-engine": "file:../plantasia-sound-engine",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "oxlint": "^1.69.0",
+    "sass": "^1.101.0",
+    "typescript": "~5.7.2",
+    "vite": "^6.0.3"
+  }
+}

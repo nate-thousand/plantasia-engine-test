@@ -1,0 +1,29 @@
+/**
+ * Maps Plantasia CSS custom properties to Bootstrap runtime variables.
+ * Foundation structure only — no component styling.
+ */
+
+:root {
+  --bs-body-bg: var(--plantasia-color-background);
+  --bs-body-color: var(--plantasia-color-text-primary);
+  --bs-primary: var(--plantasia-color-primary);
+  --bs-secondary: var(--plantasia-color-text-secondary);
+  --bs-border-color: var(--plantasia-color-border);
+  --bs-border-radius: var(--plantasia-radius-md);
+  --bs-font-sans-serif: var(--plantasia-font-sans);
+  --bs-font-monospace: var(--plantasia-font-mono);
+  --bs-link-color: var(--plantasia-color-primary);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  font-family: var(--bs-font-sans-serif);
+}
+

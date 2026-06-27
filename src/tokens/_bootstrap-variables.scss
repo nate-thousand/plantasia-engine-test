@@ -1,0 +1,11 @@
+/**
+ * Bootstrap 5.0.2 SCSS variable overrides.
+ *
+ * Import this file before Bootstrap's SCSS entry point.
+ * Map design decisions from src/tokens/_css-variables.scss and docs/design/.
+ *
+ * No component customization here — foundation only.
+ */
+
+$body-bg: #081009 !default;
+$body-color: #e7f2df !default;
