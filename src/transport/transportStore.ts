@@ -3,10 +3,11 @@ import { patchEngineStore } from '../stores/engineStore';
 import type { TransportState, TransportStoreState } from './types';
 
 const initialState: TransportStoreState = {
-  transportState: 'ready',
+  transportState: 'idle',
   holdEnabled: false,
   ambientActive: false,
   chordActive: false,
+  sessionStarted: false,
   error: null,
 };
 
@@ -84,6 +85,10 @@ export function syncTransportPlayingState(): void {
 
 export function isTransportAmbientActive(): boolean {
   return state.ambientActive;
+}
+
+export function isSessionStarted(): boolean {
+  return state.sessionStarted;
 }
 
 export function resetTransportStore(): void {

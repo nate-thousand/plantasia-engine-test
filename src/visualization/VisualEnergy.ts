@@ -6,6 +6,7 @@ import {
   resolveVisualRenderMode,
   tickPlayModeEnergy,
 } from './VisualMode';
+import { getAmbientGenerativeState } from '../audio/ambient/ambientStateStore';
 import type { AudioVizFeedback } from '../audio/visualization/AudioTap';
 import type { ActiveNoteState } from '../stores/engineStore';
 import type { VizAccessibility } from './types';
@@ -96,6 +97,8 @@ export type VisualEnergyFrameInput = {
   reduceMotion: boolean;
   /** Transport ambient session — Play active (Milestone 13D). */
   ambientActive: boolean;
+  /** Title screen cleared — user pressed spacebar. */
+  sessionStarted: boolean;
 };
 
 export function createSourceEnergyMap(): SourceEnergyMap {
@@ -117,7 +120,7 @@ export function createUnifiedVisualEnergyState(): UnifiedVisualEnergyState {
   return {
     visualEnergy: CONTROLS_ACTIVE_FLOOR,
     playModeEnergy: CONTROLS_ACTIVE_FLOOR,
-    renderMode: 'activePlay',
+    renderMode: 'idleHome',
     displayEnergy: CONTROLS_ACTIVE_FLOOR,
     sources,
   };
@@ -143,7 +146,19 @@ function sustainTargets(input: VisualEnergyFrameInput): Record<EnergySourceKey, 
     input.audio.isActive || input.audio.amplitude > 0.02
       ? clamp01(input.audio.amplitude * 0.85 + input.audio.peak * 0.45)
       : input.ambientActive
-        ? AMBIENT_PLAY.visualEnergyFloor * (0.85 + Math.sin(Date.now() * 0.00035) * 0.15)
+        ? (() => {
+            const gen = getAmbientGenerativeState();
+            const base = AMBIENT_PLAY.visualEnergyFloor * (0.85 + Math.sin(Date.now() * 0.00035) * 0.15);
+            const generative =
+              gen.voiceDensity * 0.22 +
+              gen.padEnergy * 0.18 +
+              gen.textureAmount * 0.12 +
+              gen.recentActivity * 0.28 +
+              gen.evolutionPhase * 0.08 +
+              (gen.soundWorld === 'plantasonic' ? gen.textureAmount * 0.1 : 0) +
+              (gen.soundWorld === 'juno-flowers' ? gen.stereoSpread * 0.08 : 0);
+            return clamp01(base + generative);
+          })()
         : 0;
 
   let midiSustain = 0;
@@ -259,7 +274,11 @@ export function tickUnifiedVisualEnergy(
   }
 
   const playModeEnergy = tickPlayModeEnergy(state.playModeEnergy, input, deltaMs);
-  const renderMode = resolveVisualRenderMode(playModeEnergy, input.ambientActive);
+  const renderMode = resolveVisualRenderMode(
+    playModeEnergy,
+    input.ambientActive,
+    input.sessionStarted,
+  );
   const visualEnergy = clamp01(combined);
   const displayEnergy = displayVisualEnergy(
     renderMode,

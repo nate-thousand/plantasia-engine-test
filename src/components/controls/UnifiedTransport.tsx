@@ -1,19 +1,20 @@
 import { useSyncExternalStore } from 'react';
-import { formatCategoryLabel } from '../../presets/categories';
 import { getPresetStore, subscribePresetStore } from '../../stores/presetStore';
 import type { UseInstrumentReturn } from '../../hooks/useInstrument';
 import {
-  transportPlay,
   transportPresetNext,
   transportPresetPrevious,
   transportSelectPreset,
+  transportStartSession,
   transportStop,
 } from '../../transport/transportActions';
+import { beginInstrumentSession } from '../../transport/sessionStart';
 import { transportStateLabel, useTransport } from '../../transport/useTransport';
 
 type UnifiedTransportProps = {
   instrument: UseInstrumentReturn;
   menuOpen: boolean;
+  sessionStarted: boolean;
   onMenuToggle: () => void;
 };
 
@@ -47,29 +48,32 @@ function TransportIconButton({
 }
 
 /** Single playback transport — play/stop, preset, menu. Always visible. */
-export function UnifiedTransport({ instrument, menuOpen, onMenuToggle }: UnifiedTransportProps) {
+export function UnifiedTransport({
+  instrument,
+  menuOpen,
+  sessionStarted,
+  onMenuToggle,
+}: UnifiedTransportProps) {
   const transport = useTransport();
   const presetStore = useSyncExternalStore(subscribePresetStore, getPresetStore, getPresetStore);
-  const { midi, presets } = instrument;
-  const learn = midi.learnEnabled;
+  const { presets } = instrument;
   const midiConnected = instrument.status.midiIndicator.includes('●');
 
-  const handlePlay = () => {
-    if (learn) {
-      midi.onSelectLearnTarget('play');
+  const handleStartOrPlay = () => {
+    if (transport.isInitializing) {
+      return;
+    }
+    if (!sessionStarted) {
+      beginInstrumentSession('ui');
       return;
     }
     if (transport.isPlaying) {
       return;
     }
-    void transportPlay('ui');
+    void transportStartSession('ui');
   };
 
   const handleStop = () => {
-    if (learn) {
-      midi.onSelectLearnTarget('stop');
-      return;
-    }
     transportStop('ui');
   };
 
@@ -86,7 +90,7 @@ export function UnifiedTransport({ instrument, menuOpen, onMenuToggle }: Unified
       : [
           {
             id: 'all',
-            label: 'Presets',
+            label: 'Worlds',
             presets: presets.items.map((item, index) => ({
               index,
               preset: { id: item.id, name: item.name },
@@ -97,31 +101,34 @@ export function UnifiedTransport({ instrument, menuOpen, onMenuToggle }: Unified
 
   return (
     <div
-      className="unified-transport"
+      className={`unified-transport${sessionStarted ? '' : ' unified-transport--title'}`}
       data-transport-state={transport.transportState}
       data-midi-connected={midiConnected ? 'true' : 'false'}
       aria-label="Playback transport"
     >
       <div className="unified-transport__playback">
         <TransportIconButton
-          label={transport.isInitializing ? '…' : '▶'}
+          label={transport.isInitializing ? '…' : sessionStarted && transport.isPlaying ? '▶' : '▶'}
           title={
-            transport.isPlaying
-              ? 'Ambient playing'
-              : 'Start ambient soundscape (Space)'
+            !sessionStarted
+              ? 'Begin (Space)'
+              : transport.isPlaying
+                ? 'Ambient playing'
+                : 'Start ambient soundscape (Space)'
           }
           disabled={transport.isInitializing}
-          active={transport.isPlaying}
+          active={sessionStarted && transport.isPlaying}
           primary
-          onClick={handlePlay}
+          onClick={handleStartOrPlay}
         />
-        <TransportIconButton
-          label="■"
-          title="Stop ambient soundscape (Space)"
-          disabled={!transport.isPlaying}
-          active={learn && midi.learnTarget === 'stop'}
-          onClick={handleStop}
-        />
+        {sessionStarted ? (
+          <TransportIconButton
+            label="■"
+            title="Stop ambient soundscape (Space)"
+            disabled={!transport.isPlaying}
+            onClick={handleStop}
+          />
+        ) : null}
       </div>
 
       <div className="unified-transport__preset">
@@ -129,12 +136,7 @@ export function UnifiedTransport({ instrument, menuOpen, onMenuToggle }: Unified
           label="◀"
           title="Previous preset"
           disabled={!canSelectPreset}
-          active={learn && midi.learnTarget === 'presetPrevious'}
-          onClick={
-            learn
-              ? () => midi.onSelectLearnTarget('presetPrevious')
-              : () => transportPresetPrevious()
-          }
+          onClick={() => transportPresetPrevious()}
         />
         <select
           className="unified-transport__select"
@@ -144,7 +146,7 @@ export function UnifiedTransport({ instrument, menuOpen, onMenuToggle }: Unified
           onChange={(event) => void transportSelectPreset(Number(event.target.value))}
         >
           {presets.items.length === 0 ? (
-            <option value={0}>—</option>
+            <option value={0}>Loading…</option>
           ) : groups.length > 1 ? (
             groups.map((group) => (
               <optgroup key={group.id} label={group.label}>
@@ -167,23 +169,17 @@ export function UnifiedTransport({ instrument, menuOpen, onMenuToggle }: Unified
           label="▶"
           title="Next preset"
           disabled={!canSelectPreset}
-          active={learn && midi.learnTarget === 'presetNext'}
-          onClick={
-            learn ? () => midi.onSelectLearnTarget('presetNext') : () => transportPresetNext()
-          }
+          onClick={() => transportPresetNext()}
         />
       </div>
 
-      <div className="unified-transport__status" aria-live="polite">
-        <span className="unified-transport__state">
-          {transportStateLabel(transport.transportState, midiConnected)}
-        </span>
-        {presetStore.activeMetadata?.category ? (
-          <span className="unified-transport__meta">
-            {formatCategoryLabel(presetStore.activeMetadata.category)}
+      {sessionStarted ? (
+        <div className="unified-transport__status" aria-live="polite">
+          <span className="unified-transport__state">
+            {transportStateLabel(transport.transportState, midiConnected)}
           </span>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       <TransportIconButton
         label={menuOpen ? 'close' : 'menu'}

@@ -27,8 +27,8 @@ import {
 export type LoadPresetOptions = {
   /** When true, keep current slider values instead of applying preset JSON defaults. */
   preserveControls?: boolean;
-  /** When true, load voices without preview chord (Milestone 13D). */
-  silent?: boolean;
+  /** When true, trigger a short preview chord after loading (debug / dev only). */
+  preview?: boolean;
 };
 
 export {
@@ -53,7 +53,7 @@ async function activatePreset(
   engineAdapter.stopAllNotes();
   clearActiveNotes();
 
-  if (!options?.silent) {
+  if (options?.preview) {
     getPlantasiaEngine().playPreset(preset);
   }
   syncMoldProfile(preset);

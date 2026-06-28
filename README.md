@@ -13,7 +13,7 @@ This repository is **not** the sound engine. Synthesis, presets, and Tone.js gra
 - Engine integration through `EngineAdapter` (React never calls the engine directly)
 - Document architecture, brand grammar, and development workflow
 
-**Current phase:** production-quality instrument — preset sync, Mold macro, Plantasonic/Juno live voice, MIDI Learn, and ASCII visualization.
+**Current phase:** production-quality instrument — preset-owned Play orchestration (M15), Plantasonic/Juno engine routing, preset-specific macros, MIDI Learn, and ASCII visualization tied to sound world identity.
 
 ## Technology
 
@@ -89,8 +89,8 @@ npm run preview     # Serve production build locally
 
 ## Playing the Instrument
 
-1. Press **▶ Play** on the transport bar (or **Space**) — unlocks Web Audio, loads the default preset, and plays
-2. Press **■ Stop** (or **Space** again) to release notes and return to ambient idle
+1. Press **▶ Play** on the transport bar (or **Space**) — starts an evolving pentatonic ambient soundscape from the active preset
+2. Press **■ Stop** (or **Space** again) to fade the ambient layer; keyboard/MIDI performance remains available
 3. **Computer keyboard:** A–K row maps to C4–C5; Z/X shift octave (see [TESTING.md](./TESTING.md))
 4. **MIDI:** Open **menu** → Connect MIDI, select your device (e.g. Akai MPK Mini)
    - Keys trigger notes with velocity → sound + ASCII visuals
@@ -128,6 +128,7 @@ Akai MPK Mini devices use an additional CC 1–8 knob fallback when the device n
 |------|-------------|
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Layer model and integration boundaries |
 | [ROADMAP.md](./ROADMAP.md) | Implementation phases |
+| [src/audio/ambient/README.md](./src/audio/ambient/README.md) | Adaptive Ambient Focus Engine (M15) |
 | [TESTING.md](./TESTING.md) | Verification procedures (keyboard, MIDI) |
 | [CHANGELOG.md](./CHANGELOG.md) | Version history |
 | [docs/brand/ASCII_GRAMMAR.md](./docs/brand/ASCII_GRAMMAR.md) | ASCII visual language specification |

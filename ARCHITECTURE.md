@@ -45,17 +45,31 @@ Plantasia separates **synthesis** (library) from **application** (this repo). Th
 
 ## Audio Layer
 
-The audio layer (`src/audio/`) is the only application code that talks directly to `plantasia-sound-engine`.
+The audio layer (`src/audio/`) orchestrates `plantasia-sound-engine` — it does not implement flagship synthesis.
 
 | Submodule | Responsibility |
 |-----------|----------------|
 | `engine/` | Construct, start, and dispose `PlantasiaEngine` |
 | `presets/` | Load and apply engine presets |
+| `ambient/` | Play mode orchestration (M15) — timing only; preset owns sound |
+| `liveVoice.ts` | Keyboard/MIDI performance via engine or standard mirror |
 | `midi/` | Route Web MIDI into the engine |
-| `sequencing/` | Transport and pattern coordination |
 | `visualization/` | Emit signals for ASCII and canvas layers |
 
-See [src/audio/README.md](./src/audio/README.md) for subsystem contracts.
+### Play mode orchestration (M15)
+
+Play mode never instantiates synths. It requests sound layers from the active preset:
+
+```
+transportPlay → AmbientFocusEngine → PresetTimbreSession
+                                      ├── plantasonicSession (engine)
+                                      ├── junoSession (engine)
+                                      └── standardSession (profile mirror)
+```
+
+Each preset resolves `TimbreProfile` + `GestureVocabulary`. Macro controls map to preset-specific behaviors via `presetMacroMappings.ts`.
+
+See [src/audio/README.md](./src/audio/README.md) and [src/audio/ambient/README.md](./src/audio/ambient/README.md).
 
 ## Styling
 
@@ -151,9 +165,9 @@ All playback — UI, keyboard, MIDI, and programmatic — routes through one con
 
 ### Playback lifecycle
 
-- **Play** (UI, Space, or MIDI): start audio if needed → trigger chord → set `playing`
-- **Stop**: `stopAllNotes()` → clear active notes → `ready` (preset unchanged)
-- **Notes** (keyboard/MIDI): `transportNoteOn` / `transportNoteOff` with shared hold flag
+- **Play** (UI, Space, or MIDI): start audio if needed → start generative ambient via preset sound world → set `playing`
+- **Stop**: stop ambient + `stopAllNotes()` → clear active notes → `ready` (preset unchanged)
+- **Notes** (keyboard/MIDI): `transportNoteOn` / `transportNoteOff` with shared hold flag — layers on top of ambient
 
 Settings drawer (`ControlDock`) holds sound, MIDI, keyboard hold, modulation, and viz — not duplicate transport controls.
 

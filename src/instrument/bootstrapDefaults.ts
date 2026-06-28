@@ -14,9 +14,10 @@ export function bootstrapInstrumentDefaults(): void {
   const { catalog } = bootstrapPresetCatalog();
   if (catalog.length > 0) {
     patchTransportStore({
-      transportState: 'ready',
+      transportState: 'idle',
       ambientActive: false,
       chordActive: false,
+      sessionStarted: false,
       error: null,
     });
     pulseVisualEnergy('control', 0.45);

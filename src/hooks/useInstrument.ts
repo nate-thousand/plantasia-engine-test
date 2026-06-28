@@ -115,13 +115,8 @@ export function useInstrument() {
   useEffect(() => {
     initTransport();
     const detachKeyboard = attachTransportKeyboard();
-    const unlockAudio = () => {
-      void ensureInstrumentAudio();
-    };
-    window.addEventListener('pointerdown', unlockAudio, { capture: true });
     return () => {
       detachKeyboard();
-      window.removeEventListener('pointerdown', unlockAudio, { capture: true });
     };
   }, []);
 
@@ -171,6 +166,9 @@ export function useInstrument() {
   const updateSound = useCallback(
     (key: keyof SoundControlValues, value: number) => {
       updateSoundControl(key, value, 'ui');
+      if (!getTransportStore().sessionStarted) {
+        return;
+      }
       void ensureInstrumentAudio().then((ready) => {
         if (!ready) {
           return;
@@ -188,6 +186,9 @@ export function useInstrument() {
   const updateModulation = useCallback(
     (key: keyof ModulationControlValues, value: number) => {
       updateModulationControl(key, value, 'ui');
+      if (!getTransportStore().sessionStarted) {
+        return;
+      }
       void ensureInstrumentAudio().then((ready) => {
         if (!ready) {
           return;

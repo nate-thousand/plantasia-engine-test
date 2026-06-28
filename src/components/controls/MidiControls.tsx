@@ -1,7 +1,6 @@
 import { ControlButton } from './ControlButton';
 import { ControlGroup } from './ControlGroup';
 import type { UseInstrumentReturn } from '../../hooks/useInstrument';
-import { MIDI_LEARN_TARGET_LABELS } from '../../input/MidiDefaults';
 
 type MidiControlsProps = {
   midi: UseInstrumentReturn['midi'];
@@ -22,6 +21,7 @@ function midiStatusLabel(midi: MidiControlsProps['midi']): string {
   }
 }
 
+/** MIDI device connect — plug and play; no learn UI in Release 1. */
 export function MidiControls({ midi }: MidiControlsProps) {
   const hasDevices = midi.devices.length > 0;
 
@@ -33,18 +33,7 @@ export function MidiControls({ midi }: MidiControlsProps) {
     >
       <div className="control-row control-row--between">
         <span className="control-indicator">{midiStatusLabel(midi)}</span>
-        <div className="control-row">
-          <ControlButton
-            label="Connect"
-            disabled={!midi.supported}
-            onClick={midi.onConnect}
-          />
-          <ControlButton
-            label={midi.learnEnabled ? 'Learn ✓' : 'Learn'}
-            active={midi.learnEnabled}
-            onClick={midi.onToggleLearn}
-          />
-        </div>
+        <ControlButton label="Connect" disabled={!midi.supported} onClick={midi.onConnect} />
       </div>
 
       <select
@@ -64,24 +53,6 @@ export function MidiControls({ midi }: MidiControlsProps) {
           ))
         )}
       </select>
-
-      {midi.learnEnabled ? (
-        <span className="control-hint">
-          {midi.learnTarget
-            ? `Learn: ${MIDI_LEARN_TARGET_LABELS[midi.learnTarget]}`
-            : 'Click a control to map'}
-        </span>
-      ) : null}
-
-      {Object.keys(midi.detectedCcs).length > 0 ? (
-        <span className="control-hint">
-          Detected:{' '}
-          {Object.entries(midi.detectedCcs)
-            .slice(-6)
-            .map(([cc, value]) => `CC${cc}=${value}`)
-            .join(' · ')}
-        </span>
-      ) : null}
     </ControlGroup>
   );
 }

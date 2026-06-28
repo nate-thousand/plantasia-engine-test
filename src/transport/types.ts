@@ -10,6 +10,8 @@ export type TransportStoreState = {
   ambientActive: boolean;
   /** Legacy chord burst — unused when ambient session drives playing state. */
   chordActive: boolean;
+  /** User completed title screen (spacebar) — instrument session active. */
+  sessionStarted: boolean;
   error: string | null;
 };
 

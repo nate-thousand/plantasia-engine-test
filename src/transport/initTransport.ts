@@ -1,16 +1,17 @@
 import { bootstrapInstrumentDefaults } from '../instrument/bootstrapDefaults';
 import { registerMidiActionHandlers, initMidiPipeline } from '../input/MidiRouter';
+import { beginInstrumentSession } from './sessionStart';
 import {
-  transportPlay,
   transportPresetNext,
   transportPresetPrevious,
   transportPresetRandom,
   transportProgramChange,
   transportSetHold,
+  transportStartSession,
   transportStop,
   transportToggleHold,
-  toggleTransportPlayStop,
 } from './transportActions';
+import { isSessionStarted } from './transportStore';
 
 let initialized = false;
 
@@ -26,7 +27,7 @@ export function initTransport(): void {
   initMidiPipeline();
 
   registerMidiActionHandlers({
-    onPlay: () => void transportPlay('midi'),
+    onPlay: () => beginInstrumentSession('midi'),
     onStop: () => transportStop('midi'),
     onToggleHold: transportToggleHold,
     onSetHold: transportSetHold,
@@ -37,6 +38,14 @@ export function initTransport(): void {
   });
 }
 
+function shouldIgnoreSpaceTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  );
+}
+
 /** Spacebar toggles play/stop through the unified transport. */
 export function attachTransportKeyboard(): () => void {
   const onKeyDown = (event: KeyboardEvent) => {
@@ -44,20 +53,24 @@ export function attachTransportKeyboard(): () => void {
       return;
     }
 
-    const target = event.target;
-    if (
-      target instanceof HTMLInputElement ||
-      target instanceof HTMLTextAreaElement ||
-      target instanceof HTMLSelectElement ||
-      target instanceof HTMLButtonElement
-    ) {
+    if (shouldIgnoreSpaceTarget(event.target)) {
       return;
     }
 
     event.preventDefault();
-    void toggleTransportPlayStop('keyboard');
+
+    if (!isSessionStarted()) {
+      beginInstrumentSession('keyboard');
+      return;
+    }
+
+    if (event.target instanceof HTMLButtonElement) {
+      return;
+    }
+
+    void transportStartSession('keyboard');
   };
 
-  window.addEventListener('keydown', onKeyDown);
-  return () => window.removeEventListener('keydown', onKeyDown);
+  window.addEventListener('keydown', onKeyDown, { capture: true });
+  return () => window.removeEventListener('keydown', onKeyDown, { capture: true });
 }

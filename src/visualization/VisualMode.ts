@@ -57,7 +57,11 @@ export const HOME_DECAY_RATE = 0.42;
 export function resolveVisualRenderMode(
   _playModeEnergy: number,
   _ambientActive: boolean,
+  sessionStarted = true,
 ): VisualRenderMode {
+  if (!sessionStarted) {
+    return 'idleHome';
+  }
   /** Controls always use the reactive path — Play only adds ambient soundscape. */
   return 'activePlay';
 }
@@ -65,7 +69,11 @@ export function resolveVisualRenderMode(
 export function resolveExperientialMode(
   _ambientActive: boolean,
   playModeEnergy: number,
+  sessionStarted = true,
 ): ExperientialMode {
+  if (!sessionStarted) {
+    return 'home';
+  }
   if (playModeEnergy >= PERFORMANCE_ENTER_THRESHOLD) {
     return 'performance';
   }

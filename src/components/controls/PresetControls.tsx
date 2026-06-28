@@ -4,12 +4,10 @@ import type { UseInstrumentReturn } from '../../hooks/useInstrument';
 
 type PresetControlsProps = {
   presets: UseInstrumentReturn['presets'];
-  midi: UseInstrumentReturn['midi'];
 };
 
-/** Preset details and random — primary selector lives in UnifiedTransport. */
-export function PresetControls({ presets, midi }: PresetControlsProps) {
-  const learn = midi.learnEnabled;
+/** Preset details — primary selector lives in UnifiedTransport. */
+export function PresetControls({ presets }: PresetControlsProps) {
   const active = presets.items[presets.index];
 
   return (
@@ -28,20 +26,11 @@ export function PresetControls({ presets, midi }: PresetControlsProps) {
         <span className="control-hint">{active.tags.join(' · ')}</span>
       ) : null}
 
-      <p className="control-hint control-hint--meta">
-        Hold Shift when using preset arrows in the drawer to keep slider values.
-      </p>
-
       <div className="control-row">
         <ControlButton
           label="⎈ random"
           disabled={presets.items.length === 0}
-          active={learn && midi.learnTarget === 'presetRandom'}
-          onClick={
-            learn
-              ? () => midi.onSelectLearnTarget('presetRandom')
-              : (event) => presets.onRandom(event.shiftKey)
-          }
+          onClick={(event) => presets.onRandom(event.shiftKey)}
         />
       </div>
     </ControlGroup>

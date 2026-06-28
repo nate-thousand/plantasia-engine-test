@@ -22,6 +22,7 @@ class EngineAdapter {
   private engine: PlantasiaEngine | null = null;
   private readonly liveVoice = new LiveVoiceRouter();
   private audioStarted = false;
+  private audioStartPromise: Promise<{ presetCount: number }> | null = null;
   private lastSound: SoundControlValues | null = null;
   private lastModulation: ModulationControlValues | null = null;
 
@@ -42,7 +43,25 @@ class EngineAdapter {
     return this.engine !== null;
   }
 
+  /** Call synchronously inside a user-gesture handler before any await. */
+  kickAudioFromUserGesture(): Promise<{ presetCount: number }> {
+    this.getEngine();
+    if (this.audioStarted) {
+      return Promise.resolve({ presetCount: this.getEngine().presets.length });
+    }
+    if (!this.audioStartPromise) {
+      this.audioStartPromise = this.startAudio().finally(() => {
+        this.audioStartPromise = null;
+      });
+    }
+    return this.audioStartPromise;
+  }
+
   async startAudio(): Promise<{ presetCount: number }> {
+    if (this.audioStarted) {
+      return { presetCount: this.getEngine().presets.length };
+    }
+
     const instance = this.getEngine();
 
     console.info(`${LOG_PREFIX} Initializing audio context…`);

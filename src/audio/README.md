@@ -1,49 +1,60 @@
 # Audio Layer
 
-Application-side audio orchestration for Plantasia. This layer sits above `plantasia-sound-engine` and coordinates engine lifecycle, presets, MIDI, sequencing, and visualization hooks.
+Application-side audio orchestration for Plantasia. This layer sits above `plantasia-sound-engine` and coordinates engine lifecycle, presets, MIDI, ambient generative playback, and visualization hooks.
 
 ## Scope
 
-This folder owns **application integration** — not synthesis implementation. All synth logic, Tone.js graph construction, and preset schema live in the separate `plantasia-sound-engine` package.
+This folder owns **application integration** — not synthesis implementation. Core synth logic and preset schema live in `plantasia-sound-engine`. The **Adaptive Ambient Focus Engine** (M15) is implemented here for generative Play mode.
 
-## Planned Subsystems
+## Subsystems
 
 | Subsystem | Path | Responsibility |
 |-----------|------|----------------|
-| Engine | `engine/` | Initialize and dispose the sound engine; bridge user gestures to audio context unlock |
-| Presets | `presets/` | Load, cache, and switch presets exposed by the engine |
-| MIDI | `midi/` | Connect external MIDI devices and route events into the engine |
-| Sequencing | `sequencing/` | Pattern playback, transport, and timing coordination |
-| Visualization | `visualization/` | Emit normalized audio/state signals for ASCII and canvas renderers |
+| Engine | `engine.ts`, `EngineAdapter.ts` | Initialize sound engine; bridge user gestures to audio unlock |
+| Presets | `presets.ts` | Load, cache, and switch presets |
+| Ambient | `ambient/` | Generative pentatonic focus engine (M15) |
+| Live input | `liveVoice.ts` | Keyboard/MIDI performance layering |
+| MIDI | `midi/` (via `src/input/`) | Route external MIDI into the engine |
+| Visualization | `visualization/AudioTap.ts` | Real-time audio analysis for ASCII renderer |
 
 ## Architecture
 
 ```
-User / UI (future)
+User / Transport Play
        │
        ▼
-src/audio/          ← application orchestration
-       │
-       ▼
-plantasia-sound-engine   ← synthesis, presets, botanical controls
-       │
-       ▼
-Web Audio / Tone.js
+EngineAdapter
+       ├── ambient/          ← generative focus engine (Play)
+       ├── liveVoice.ts      ← keyboard/MIDI performance
+       └── plantasia-sound-engine
+              │
+              ▼
+         Web Audio / Tone.js
 ```
 
-## Design Principles
+## Play mode (M15)
 
-1. **Single engine instance** — one authoritative `PlantasiaEngine` per application session.
-2. **Lazy initialization** — defer audio context start until explicit user interaction.
-3. **Read-only engine boundary** — never fork or patch engine internals from this repo.
-4. **Observable state** — subsystems expose events or store updates for visuals and UI.
-5. **Progressive implementation** — each subdirectory can land independently behind the same folder contract.
+Transport **Play** starts `AmbientFocusEngine` — an orchestration layer only. The active preset owns synthesis via `PresetTimbreSession`:
 
-## Status
+- **Plantasonic / Juno** — engine live voice graphs (`plantasonic-sound-engine`)
+- **Standard** — profile-driven graph mirroring engine routing
+- **Generative** — phrase memory, gesture vocabulary, preset-specific macro mappings
+- **Visuals** — `ambientStateStore.soundWorld` drives preset-aligned ASCII energy
 
-Foundation only. No runtime code yet. Implement subsystems incrementally as features are scoped on the roadmap.
+Performance (keyboard, MIDI, controls) layers on top via `LiveVoiceRouter`.
 
-## Related Documentation
+See [ambient/README.md](./ambient/README.md).
 
+## Design principles
+
+1. **Single engine instance** — one authoritative `PlantasiaEngine` per session.
+2. **Lazy initialization** — audio starts on user gesture (Play, pointerdown, controls).
+3. **Read-only engine boundary** — never fork engine internals from this repo.
+4. **Observable state** — ambient generative state feeds visuals via `ambientStateStore`.
+5. **No therapeutic claims** — calm focus-oriented design, not medical/wellness product language.
+
+## Related documentation
+
+- [ambient/README.md](./ambient/README.md) — voice architecture, scales, probability engine
 - [ARCHITECTURE.md](../../ARCHITECTURE.md) — project-wide architecture
-- [../plantasia-sound-engine README](https://github.com/nate-thousand/plantasia-sound-engine) — engine API and installation
+- [plantasia-sound-engine](https://github.com/nate-thousand/plantasia-sound-engine) — engine API

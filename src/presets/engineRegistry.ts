@@ -8,6 +8,12 @@ import {
 import type { PresetCategoryGroup, PresetCatalogEntry, PresetManifest } from './types';
 import { buildPresetMetadata } from './presetMetadata';
 import { formatCategoryLabel } from './categories';
+import {
+  applyReleaseCatalogFilter,
+  buildReleaseCategoryGroups,
+  getReleaseDefaultPresetIndex,
+  isReleaseCatalogLocked,
+} from '../release/releasePresets';
 
 const LOG_PREFIX = '[Plantasia Engine Test]';
 
@@ -58,6 +64,20 @@ export function buildPresetCatalog(): PresetCatalogEntry[] {
   const manifest = getPresetManifest();
   const presets = getEnginePresets();
 
+  const full = presets.map((preset, index) => ({
+    index,
+    preset,
+    metadata: buildPresetMetadata(preset, categoryForPresetId(manifest, preset.id)),
+  }));
+
+  return applyReleaseCatalogFilter(full);
+}
+
+/** Full engine catalog — debug / development only. */
+export function buildFullPresetCatalog(): PresetCatalogEntry[] {
+  const manifest = getPresetManifest();
+  const presets = getEnginePresets();
+
   return presets.map((preset, index) => ({
     index,
     preset,
@@ -67,6 +87,13 @@ export function buildPresetCatalog(): PresetCatalogEntry[] {
 
 /** Group presets by manifest category; uncategorized presets land in "other". */
 export function buildPresetCategoryGroups(catalog: PresetCatalogEntry[]): PresetCategoryGroup[] {
+  if (isReleaseCatalogLocked()) {
+    const releaseGroups = buildReleaseCategoryGroups(catalog);
+    if (releaseGroups.length > 0) {
+      return releaseGroups;
+    }
+  }
+
   const manifest = getPresetManifest();
   const assigned = new Set<number>();
   const groups: PresetCategoryGroup[] = [];
@@ -110,6 +137,9 @@ export function buildPresetCategoryGroups(catalog: PresetCatalogEntry[]): Preset
 
 /** Resolve catalog index for the manifest default preset. */
 export function getDefaultPresetIndex(catalog: PresetCatalogEntry[]): number {
+  if (isReleaseCatalogLocked()) {
+    return getReleaseDefaultPresetIndex(catalog);
+  }
   const defaultId = getPresetManifest().defaultPresetId;
   const match = catalog.find((entry) => entry.preset.id === defaultId);
   return match?.index ?? 0;

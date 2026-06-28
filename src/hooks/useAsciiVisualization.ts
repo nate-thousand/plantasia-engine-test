@@ -27,7 +27,7 @@ import {
 } from '../visualization/SliderVisualEffects';
 import { behaviorFromVisualEnergy } from '../visualization/VisualEnergy';
 import { behaviorForRenderMode, resolveExperientialMode } from '../visualization/VisualMode';
-import { isTransportAmbientActive } from '../transport/transportStore';
+import { isSessionStarted, isTransportAmbientActive } from '../transport/transportStore';
 import {
   amplifyBehaviorForPerformance,
   createPerformanceAnimationState,
@@ -294,6 +294,7 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
           interactionBoost: midiStore.interactionBurst,
           reduceMotion: accessibility.reduceMotion,
           ambientActive: isTransportAmbientActive(),
+          sessionStarted: isSessionStarted(),
         },
         deltaMs,
         accessibility,
@@ -304,6 +305,7 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
         : resolvePresetTheme(presetId, presetName);
 
       const ambientActive = isTransportAmbientActive();
+      const sessionStarted = isSessionStarted();
       const frameInput = {
         audio,
         activeNotes: engineStore.activeNotes,
@@ -317,6 +319,7 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
         interactionBoost: midiStore.interactionBurst,
         reduceMotion: accessibility.reduceMotion,
         ambientActive,
+        sessionStarted,
       };
 
       const performanceState = tickPerformanceAnimation(
@@ -486,6 +489,7 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
         container.dataset.performanceMode = resolveExperientialMode(
           ambientActive,
           energyState.playModeEnergy,
+          sessionStarted,
         );
       }
 

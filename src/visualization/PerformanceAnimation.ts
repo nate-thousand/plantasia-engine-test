@@ -5,6 +5,7 @@
 import type { AudioVizFeedback } from '../audio/visualization/AudioTap';
 import { getChoreographyForTheme, type ChoreographyProfile } from './PresetChoreography';
 import { AMBIENT_PLAY } from './VisualMode';
+import { getAmbientGenerativeState } from '../audio/ambient/ambientStateStore';
 import type { PresetTheme, VisualEnergyBehavior } from './types';
 import type { VisualEnergyFrameInput, UnifiedVisualEnergyState } from './VisualEnergy';
 
@@ -128,8 +129,14 @@ function envelopeTarget(input: VisualEnergyFrameInput): number {
     return clamp01(0.35 + vel * 0.65 + input.audio.bass * 0.25);
   }
   if (input.ambientActive) {
+    const gen = getAmbientGenerativeState();
     return clamp01(
-      0.28 + input.audio.amplitude * 0.45 + input.audio.peak * 0.25 + AMBIENT_PLAY.choreographyBase * 0.35,
+      0.28 +
+        input.audio.amplitude * 0.45 +
+        input.audio.peak * 0.25 +
+        AMBIENT_PLAY.choreographyBase * 0.35 +
+        gen.evolutionPhase * 0.12 +
+        gen.recentActivity * 0.2,
     );
   }
   return clamp01(input.audio.amplitude * 0.5 + input.audio.peak * 0.35);

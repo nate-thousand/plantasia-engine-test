@@ -4,7 +4,7 @@ import {
   loadPresetAtIndex,
   randomPresetIndex,
 } from '../audio/presets';
-import { startAudioEngine, stopEngineNote } from '../audio/engine';
+import { stopEngineNote } from '../audio/engine';
 import { buildPresetCatalog } from '../presets/engineRegistry';
 import { resolvePresetIndexFromProgram } from '../input/PresetMidiDefaults';
 import {
@@ -22,6 +22,7 @@ import {
   getHoldEnabled,
   getTransportStore,
   isTransportAmbientActive,
+  isSessionStarted,
   isTransportAudioReady,
   isTransportPlaying,
   patchTransportStore,
@@ -40,6 +41,7 @@ function emitTransportFeedback(
 }
 
 let ensureInstrumentPromise: Promise<boolean> | null = null;
+let sessionStartPromise: Promise<void> | null = null;
 
 /** Start Tone.js and load the active preset — does not start ambient playback. */
 export async function ensureInstrumentAudio(): Promise<boolean> {
@@ -56,13 +58,17 @@ export async function ensureInstrumentAudio(): Promise<boolean> {
     setTransportState('loading');
 
     try {
-      await startAudioEngine();
+      await engineAdapter.kickAudioFromUserGesture();
       const { defaultIndex } = bootstrapPresetCatalog();
       const presetIndex = getPresetStore().ready ? getPresetStore().activeIndex : defaultIndex;
       const store = getControlStore();
       engineAdapter.applyControlSurface(store.sound, store.modulation);
-      await loadPresetAtIndex(presetIndex, { silent: true });
-      patchTransportStore({ transportState: 'ready', chordActive: false, ambientActive: false });
+      await loadPresetAtIndex(presetIndex);
+      patchTransportStore({
+        transportState: isSessionStarted() ? 'ready' : 'idle',
+        chordActive: false,
+        ambientActive: false,
+      });
       syncEngineFromAdapter();
       return true;
     } catch (caught) {
@@ -84,9 +90,13 @@ export const startTransportAudio = ensureInstrumentAudio;
 
 /** Play — start ambient soundscape only (instrument must be initialized). */
 export async function transportPlay(_source: TransportActionSource = 'ui'): Promise<void> {
-  const ready = await ensureInstrumentAudio();
+  const ready = isSessionStarted() ? isTransportAudioReady() : await ensureInstrumentAudio();
   if (!ready) {
     return;
+  }
+
+  if (!isSessionStarted()) {
+    patchTransportStore({ sessionStarted: true });
   }
 
   const preset = getPresetStore().activePreset;
@@ -135,6 +145,35 @@ export async function transportStop(_source: TransportActionSource = 'ui'): Prom
   }
 }
 
+/** Spacebar / click — start session; after that toggle play/stop. */
+export async function transportStartSession(
+  source: TransportActionSource = 'keyboard',
+): Promise<void> {
+  if (!isSessionStarted()) {
+    if (sessionStartPromise) {
+      return sessionStartPromise;
+    }
+
+    patchTransportStore({ sessionStarted: true, transportState: 'loading' });
+
+    sessionStartPromise = (async () => {
+      const ready = await ensureInstrumentAudio();
+      if (!ready) {
+        patchTransportStore({ sessionStarted: false, transportState: 'idle' });
+        return;
+      }
+
+      await transportPlay(source);
+    })().finally(() => {
+      sessionStartPromise = null;
+    });
+
+    return sessionStartPromise;
+  }
+
+  await toggleTransportPlayStop(source);
+}
+
 /** Spacebar / primary transport toggle — ambient play/stop only. */
 export async function toggleTransportPlayStop(source: TransportActionSource = 'keyboard'): Promise<void> {
   if (isTransportPlaying()) {
@@ -159,6 +198,10 @@ export function transportNoteOn(
   velocity: number,
   source: 'keyboard' | 'midi' = 'keyboard',
 ): void {
+  if (!isSessionStarted()) {
+    return;
+  }
+
   void ensureInstrumentAudio().then((ready) => {
     if (!ready) {
       return;
@@ -212,6 +255,10 @@ export async function transportSelectPreset(
   const wrapped = ((index % catalog.length) + catalog.length) % catalog.length;
   setActivePresetIndex(wrapped);
 
+  if (!isSessionStarted()) {
+    return;
+  }
+
   const ready = await ensureInstrumentAudio();
   if (!ready) {
     setTransportError(null);
@@ -223,7 +270,7 @@ export async function transportSelectPreset(
   const wasAmbient = getTransportStore().ambientActive;
 
   try {
-    await loadPresetAtIndex(wrapped, { preserveControls, silent: true });
+    await loadPresetAtIndex(wrapped, { preserveControls });
     setTransportError(null);
     patchTransportStore({ chordActive: false });
     syncTransportPlayingState();

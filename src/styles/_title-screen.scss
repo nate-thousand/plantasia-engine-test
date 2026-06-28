@@ -1,0 +1,132 @@
+.title-screen {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: absolute;
+  z-index: 12;
+}
+
+.title-screen:focus-visible {
+  outline: none;
+}
+
+.title-screen:focus-visible .title-screen__content {
+  outline: 1px solid rgb(127 216 143 / 0.45);
+  outline-offset: 6px;
+}
+
+.title-screen__content {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.25rem, 3.5vh, 2.25rem);
+  max-width: min(98vw, 56rem);
+  padding: 1.5rem;
+  pointer-events: none;
+  position: relative;
+  text-align: center;
+}
+
+.title-screen__veil {
+  background: radial-gradient(
+    ellipse 72% 58% at 50% 40%,
+    rgb(8 14 10 / 0.5) 0%,
+    rgb(4 8 6 / 0.9) 52%,
+    rgb(2 4 3 / 0.97) 100%
+  );
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.title-screen__logo {
+  color: var(--plantasia-color-organism, #7fd88f);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  line-height: 1.06;
+  margin: 0;
+  opacity: 0.96;
+  text-shadow:
+    0 0 20px rgb(127 216 143 / 0.35),
+    0 0 48px rgb(80 160 96 / 0.12);
+  white-space: pre;
+  animation: title-logo-glow 4.5s ease-in-out infinite;
+}
+
+.title-screen__logo--standard {
+  display: block;
+  font-size: clamp(0.34rem, 1.05vw, 0.62rem);
+}
+
+.title-screen__logo--compact {
+  display: none;
+  font-size: clamp(0.42rem, 2.8vw, 0.58rem);
+}
+
+.title-screen__prompt {
+  color: var(--plantasia-color-text-secondary, rgb(180 210 190 / 0.82));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: clamp(0.75rem, 2.2vw, 0.95rem);
+  letter-spacing: 0.28em;
+  margin: 0;
+  text-transform: uppercase;
+  animation: title-prompt-pulse 2.8s ease-in-out infinite;
+}
+
+.title-screen__error {
+  color: rgb(255 140 140 / 0.95);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: clamp(0.7rem, 2vw, 0.85rem);
+  letter-spacing: 0.08em;
+  margin: 0;
+  max-width: 28rem;
+}
+
+@keyframes title-logo-glow {
+  0%,
+  100% {
+    opacity: 0.88;
+    filter: brightness(0.94);
+  }
+
+  50% {
+    opacity: 1;
+    filter: brightness(1.08);
+  }
+}
+
+@keyframes title-prompt-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 0.95;
+  }
+}
+
+@media (max-width: 640px) {
+  .title-screen__logo--standard {
+    display: none;
+  }
+
+  .title-screen__logo--compact {
+    display: block;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .title-screen__logo {
+    animation: none;
+    opacity: 0.94;
+  }
+
+  .title-screen__prompt {
+    animation: none;
+    opacity: 0.85;
+  }
+}

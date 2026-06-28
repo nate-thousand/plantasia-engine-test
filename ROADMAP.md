@@ -914,6 +914,76 @@ Input intensifies the existing shape — never replaces it with chaos:
 
 ---
 
+## Milestone 15 — Adaptive Ambient Focus Engine — complete
+
+Redesign Play mode into an evolving ambient generative instrument with **preset-owned sonic identity**. Play mode orchestrates timing only; synthesis, routing, effects, and macro behavior come from the active preset.
+
+### Preset identity refactor
+
+- Play mode never instantiates generic Tone.js synths — requests layers from `PresetTimbreSession`
+- Each preset resolves a full `TimbreProfile` (oscillators, filters, envelopes, modulation, effects, motion, density, texture)
+- Plantasonic and Juno route through `plantasia-sound-engine` live voice graphs
+- Standard presets use profile-driven graph mirroring engine routing
+- Preset-specific macro mappings for bloom, mold, texture, drift (`presetMacroMappings.ts`)
+- Gesture vocabulary + phrase memory for hours-long non-repetitive playback
+
+### Architecture
+
+```
+Play Mode (AmbientFocusEngine)
+    ↓
+Current Preset → PresetTimbreSession
+    ├── createDroneLayer()
+    ├── createPulseLayer()
+    ├── createMelodyLayer()
+    ├── createTextureLayer()
+    ├── createGestureLayer()
+    └── applyControls() + FX chain
+```
+
+### Musical system
+
+| Scale | Semitones |
+|-------|-----------|
+| Major pentatonic | 0, 2, 4, 7, 9 |
+| Minor pentatonic | 0, 3, 5, 7, 10 |
+| Japanese pentatonic | 0, 1, 5, 7, 10 |
+| Suspended pentatonic | 0, 2, 5, 7, 10 |
+| Preset-specific | From `preset.scale[]` when present |
+
+### Voice architecture
+
+Drone · Pad · Bell · Pluck · Sub · Air — each with independent slow clocks and probability timing.
+
+### Modules
+
+| Module | Role |
+|--------|------|
+| `AmbientFocusEngine.ts` | Orchestration scheduler — timing, phrase memory, gestures |
+| `presetSoundWorld.ts` | Layer interface — preset owns sound |
+| `timbreProfile.ts` | Timbre definition per preset |
+| `presetMacroMappings.ts` | Bloom/mold/texture/drift per routing |
+| `gestureVocabulary.ts` | Preset-specific timing and surprise events |
+| `phraseMemory.ts` | Motif memory — avoids repetition |
+| `timbreSession/` | Plantasonic / Juno / standard backends |
+| `harmonicProfile.ts` | Root, scale, chord palettes, preset weights |
+| `probabilityEngine.ts` | Stepwise/leap/pause picking |
+| `ambientStateStore.ts` | Generative state → visuals (incl. `soundWorld`) |
+| `AmbientSoundscape.ts` | Transport facade |
+
+### Definition of done
+
+- [x] Plantasonic and Juno sound unmistakably different (engine-routed graphs)
+- [x] Preset identity from synthesis/routing/modulation — not scale alone
+- [x] Play mode never creates synths directly
+- [x] Preset-specific macro behaviors (bloom, mold)
+- [x] Phrase memory + gesture vocabulary for long sessions
+- [x] ASCII visuals blend preset `soundWorld` from generative state
+- [x] New presets addable via preset definition without modifying Play mode
+- [x] Documentation in ROADMAP, README, `src/audio/ambient/README.md`, ARCHITECTURE
+
+---
+
 ## Out of Scope for This Repository
 
 - Sound engine implementation (belongs in `plantasia-sound-engine`)
