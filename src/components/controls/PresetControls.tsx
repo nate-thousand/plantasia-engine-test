@@ -4,10 +4,11 @@ import type { UseInstrumentReturn } from '../../hooks/useInstrument';
 
 type PresetControlsProps = {
   presets: UseInstrumentReturn['presets'];
+  midi: UseInstrumentReturn['midi'];
   audioReady: boolean;
 };
 
-export function PresetControls({ presets, audioReady }: PresetControlsProps) {
+export function PresetControls({ presets, midi, audioReady }: PresetControlsProps) {
   return (
     <ControlGroup label="Preset" className="control-group--compact">
       <select
@@ -27,9 +28,34 @@ export function PresetControls({ presets, audioReady }: PresetControlsProps) {
           ))
         )}
       </select>
-      <ControlButton label="Prev" disabled={!audioReady} onClick={presets.onPrevious} />
-      <ControlButton label="Next" disabled={!audioReady} onClick={presets.onNext} />
-      <ControlButton label="Random" disabled={!audioReady} onClick={presets.onRandom} />
+      <ControlButton
+        label="Prev"
+        disabled={!audioReady}
+        active={midi.learnEnabled && midi.learnTarget === 'presetPrevious'}
+        onClick={
+          midi.learnEnabled
+            ? () => midi.onSelectLearnTarget('presetPrevious')
+            : presets.onPrevious
+        }
+      />
+      <ControlButton
+        label="Next"
+        disabled={!audioReady}
+        active={midi.learnEnabled && midi.learnTarget === 'presetNext'}
+        onClick={
+          midi.learnEnabled ? () => midi.onSelectLearnTarget('presetNext') : presets.onNext
+        }
+      />
+      <ControlButton
+        label="Random"
+        disabled={!audioReady}
+        active={midi.learnEnabled && midi.learnTarget === 'presetRandom'}
+        onClick={
+          midi.learnEnabled
+            ? () => midi.onSelectLearnTarget('presetRandom')
+            : presets.onRandom
+        }
+      />
     </ControlGroup>
   );
 }

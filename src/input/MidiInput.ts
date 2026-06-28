@@ -1,10 +1,7 @@
 import type { MidiDeviceInfo } from '../stores/engineStore';
-import { patchEngineStore, pulseMidiActivity } from '../stores/engineStore';
-
-export type MidiInputHandlers = {
-  onNoteOn: (midi: number, velocity: number) => void;
-  onNoteOff: (midi: number) => void;
-};
+import { patchEngineStore } from '../stores/engineStore';
+import { initMidiPipeline, routeMidiMessage } from './MidiRouter';
+import { parseMidiMessage } from './MidiMessageParser';
 
 type WebMidiInputPort = globalThis.MIDIInput;
 
@@ -40,11 +37,6 @@ function findInputPort(access: MIDIAccess, deviceId: string): WebMidiInputPort |
 export class MidiInputManager {
   private access: MIDIAccess | null = null;
   private selectedInput: WebMidiInputPort | null = null;
-  private handlers: MidiInputHandlers;
-
-  constructor(handlers: MidiInputHandlers) {
-    this.handlers = handlers;
-  }
 
   static isSupported(): boolean {
     return isWebMidiSupported();
@@ -55,6 +47,7 @@ export class MidiInputManager {
       throw new Error('Web MIDI is not supported in this browser.');
     }
 
+    initMidiPipeline();
     patchEngineStore({ midiState: 'pending' });
 
     this.access = await navigator.requestMIDIAccess({ sysex: false });
@@ -146,29 +139,17 @@ export class MidiInputManager {
 
   private handleMessage = (event: MIDIMessageEvent): void => {
     const data = event.data;
-    if (!data || data.length < 2) {
+    if (!data) {
       return;
     }
 
-    pulseMidiActivity();
-
-    const status = data[0];
-    const note = data[1];
-    const velocity = data.length > 2 ? data[2] : 0;
-    const command = status & 0xf0;
-
-    if (command === 0x90) {
-      if (velocity === 0) {
-        this.handlers.onNoteOff(note);
-      } else {
-        this.handlers.onNoteOn(note, velocity);
-      }
+    const parsed = parseMidiMessage(Array.from(data));
+    if (!parsed) {
       return;
     }
 
-    if (command === 0x80) {
-      this.handlers.onNoteOff(note);
-    }
+    const deviceName = this.selectedInput?.name ?? null;
+    routeMidiMessage(parsed, deviceName);
   };
 }
 

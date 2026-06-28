@@ -14,10 +14,14 @@ export function ControlDock({ instrument }: ControlDockProps) {
 
   return (
     <div className="control-dock">
-      <TransportControls transport={instrument.transport} />
-      <PresetControls presets={instrument.presets} audioReady={audioReady} />
-      <SoundControls sound={instrument.sound} audioReady={audioReady} />
-      <ModulationControls modulation={instrument.modulation} audioReady={audioReady} />
+      <TransportControls transport={instrument.transport} midi={instrument.midi} />
+      <PresetControls presets={instrument.presets} midi={instrument.midi} audioReady={audioReady} />
+      <SoundControls sound={instrument.sound} midi={instrument.midi} audioReady={audioReady} />
+      <ModulationControls
+        modulation={instrument.modulation}
+        midi={instrument.midi}
+        audioReady={audioReady}
+      />
       <MidiControls midi={instrument.midi} audioReady={audioReady} />
     </div>
   );

@@ -1,39 +1,42 @@
 import { ControlGroup } from './ControlGroup';
 import { ControlSlider } from './ControlSlider';
 import type { UseInstrumentReturn } from '../../hooks/useInstrument';
+import type { ModulationControlValues } from '../../types/instrument';
 
 type ModulationControlsProps = {
   modulation: UseInstrumentReturn['modulation'];
+  midi: UseInstrumentReturn['midi'];
   audioReady: boolean;
 };
 
-export function ModulationControls({ modulation, audioReady }: ModulationControlsProps) {
+const SLIDER_KEYS: {
+  key: keyof ModulationControlValues;
+  label: string;
+  learn: 'growthRate' | 'drift' | 'mutation' | 'energy';
+}[] = [
+  { key: 'growthRate', label: 'Growth', learn: 'growthRate' },
+  { key: 'drift', label: 'Drift', learn: 'drift' },
+  { key: 'mutation', label: 'Mutation', learn: 'mutation' },
+  { key: 'energy', label: 'Energy', learn: 'energy' },
+];
+
+export function ModulationControls({ modulation, midi, audioReady }: ModulationControlsProps) {
   return (
     <ControlGroup label="Modulation" className="control-group--sliders">
-      <ControlSlider
-        label="Growth"
-        value={modulation.values.growthRate}
-        disabled={!audioReady}
-        onChange={(value) => modulation.onChange('growthRate', value)}
-      />
-      <ControlSlider
-        label="Drift"
-        value={modulation.values.drift}
-        disabled={!audioReady}
-        onChange={(value) => modulation.onChange('drift', value)}
-      />
-      <ControlSlider
-        label="Mutation"
-        value={modulation.values.mutation}
-        disabled={!audioReady}
-        onChange={(value) => modulation.onChange('mutation', value)}
-      />
-      <ControlSlider
-        label="Energy"
-        value={modulation.values.energy}
-        disabled={!audioReady}
-        onChange={(value) => modulation.onChange('energy', value)}
-      />
+      {SLIDER_KEYS.map(({ key, label, learn }) => (
+        <ControlSlider
+          key={key}
+          label={label}
+          value={modulation.values[key]}
+          disabled={!audioReady}
+          highlighted={modulation.highlight?.target === key}
+          learnActive={midi.learnEnabled && midi.learnTarget === learn}
+          onSelectLearn={
+            midi.learnEnabled ? () => midi.onSelectLearnTarget(learn) : undefined
+          }
+          onChange={(value) => modulation.onChange(key, value)}
+        />
+      ))}
     </ControlGroup>
   );
 }

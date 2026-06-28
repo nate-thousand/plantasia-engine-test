@@ -6,6 +6,7 @@ import {
 } from './Grammar';
 import type { Node } from './Node';
 import type { Organism } from './Organism';
+import { GRID_HEIGHT, GRID_WIDTH } from './gridConstants';
 
 export type RenderOptions = {
   /** Reserved — future animation frame index. */
@@ -132,7 +133,7 @@ export class Renderer {
   }
 }
 
-const DEFAULT_RENDERER = new Renderer({ width: 15, height: 11 });
+const DEFAULT_RENDERER = new Renderer({ width: GRID_WIDTH, height: GRID_HEIGHT });
 
 /** Convenience helper for UI integration. */
 export function renderOrganism(organism: Organism, options?: RenderOptions): string {

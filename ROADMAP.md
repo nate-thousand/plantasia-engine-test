@@ -270,14 +270,111 @@ Live notes use a Tone.js PolySynth on the shared audio context until `plantasia-
 
 ---
 
-## Milestone 9 — Sequencing
+## Milestone 9 — Note Driven ASCII Visual Language
+
+**Status:** Complete
+
+### Goals
+
+Make the ASCII organism visually respond to actual musical input — notes, velocity, sliders, presets, and harmony — using the formal grammar in `docs/brand/ASCII_GRAMMAR.md`.
+
+### Tasks
+
+- [x] Visual mapping layer under `src/visuals/organism/` (`OrganismState`, `OrganismMappings`, `NoteVisualMapper`, `ToneVisualMapper`, `EnergyVisualMapper`, `GrammarSymbols`)
+- [x] Pitch-class → organism form mapping (C = center/root, C# = mutation, D = upward growth, …)
+- [x] Octave → vertical placement; velocity → density glyphs (·/•/● and ░/▒/▓)
+- [x] Keyboard (A–K) and MIDI notes share the same visual system via `engineStore.activeNotes`
+- [x] Chord / interval awareness — consonance → harmony structures, dissonance → tension, clusters → density
+- [x] Slider → visual mapping (volume, tone, texture, bloom, growth, drift, mutation, energy)
+- [x] Preset visual identity fallbacks from preset id / category
+- [x] Pipeline: Input → EngineStore → OrganismState → Visual Mapper → Renderer
+- [x] Minimal overlay feedback — note label, active note count, visual state name
+
+### Architecture
+
+| Module | Role |
+|--------|------|
+| `OrganismState.ts` | Composed visual state + harmony / life-state classification |
+| `NoteVisualMapper.ts` | Note → pitch form, octave offset, velocity density |
+| `ToneVisualMapper.ts` | Volume, tone, texture, bloom → glyphs |
+| `EnergyVisualMapper.ts` | Growth, drift, mutation, energy → glyphs |
+| `OrganismMappings.ts` | Chord structures, preset identity, organism graph assembly |
+| `InstrumentVisualState.ts` | Hook-facing facade + overlay indicators |
+
+### Definition of Done
+
+- [x] Organism reacts to keyboard and MIDI notes with grammar-correct forms
+- [x] Chords produce harmony or tension structures
+- [x] Sliders update visual state without changing sound behavior
+- [x] No hardcoded artwork in React components
+- [x] No changes to `plantasia-sound-engine`
+
+---
+
+## Milestone 10 — Full MIDI Control Mapping
+
+**Status:** Complete
+
+### Goals
+
+Make the instrument fully playable and controllable from MIDI keyboards and controllers (primary target: Akai MPK Mini). Notes, CCs, pads, presets, and learn mappings route through a dedicated input pipeline — not React components.
+
+### Tasks
+
+- [x] `MidiMessageParser` — note on/off, CC, program change parsing
+- [x] `MidiControlMap` — standard CC map + MPK Mini knob fallback (device name detection)
+- [x] `MidiLearn` — target selection, CC assignment, localStorage persistence (`plantasia-midi-mappings`)
+- [x] `MidiStorage` — learned mapping save/restore
+- [x] `MidiRouter` — full message routing pipeline
+- [x] `controlStore` — unified slider state (UI + MIDI share one code path)
+- [x] `midiStore` — last message, detected CCs, learn state, interaction bursts
+- [x] Pad / button support — default note + CC pad maps, energy/mutation bursts
+- [x] Preset control via MIDI — prev/next/random + program change
+- [x] Visual feedback — overlay + slider highlight on MIDI CC changes
+- [x] Hold mode — note off suppressed when hold enabled
+
+### Architecture
+
+```
+MIDI Device → MidiInput → MidiMessageParser → MidiRouter
+                    ↓                              ↓
+              midiStore                    MidiControlMap / MidiLearn
+                    ↓                              ↓
+              engineStore ← notes          controlStore → EngineAdapter
+                    ↓                              ↓
+              OrganismState ←──────────────────────┘
+```
+
+| Module | Role |
+|--------|------|
+| `MidiDefaults.ts` | Standard CC map, MPK Mini fallback, pad defaults |
+| `MidiMessageParser.ts` | Raw bytes → typed messages |
+| `MidiControlMap.ts` | CC → control target resolution |
+| `MidiLearn.ts` | Learn workflow |
+| `MidiStorage.ts` | localStorage persistence |
+| `MidiRouter.ts` | Message dispatch + action handlers |
+| `controlStore.ts` | Canonical slider values (0–100) |
+| `midiStore.ts` | MIDI UI + feedback state |
+
+### Definition of Done
+
+- [x] MIDI notes trigger sound + ASCII visuals with velocity density
+- [x] MIDI CCs move matching sliders and update sound/visuals
+- [x] MIDI Learn assigns and persists mappings
+- [x] Pads trigger transport/preset/burst actions
+- [x] No MIDI logic inside React components
+- [x] No changes to `plantasia-sound-engine`
+
+---
+
+## Milestone 11 — Sequencing
 
 **Status:** Planned
 
 - [ ] Transport and pattern playback (`src/audio/sequencing/`)
 - [ ] Hook engine sequencer exports when available
 
-## Milestone 10 — Visualization Hooks
+## Milestone 12 — Visualization Hooks
 
 **Status:** Planned
 
@@ -285,7 +382,7 @@ Live notes use a Tone.js PolySynth on the shared audio context until `plantasia-
 - [ ] Engine-driven organism updates (`Node.applyEngineUpdate`)
 - [ ] Canvas render loop scaffold (`src/canvas/`)
 
-## Milestone 11 — Application Shell Expansion
+## Milestone 13 — Application Shell Expansion
 
 **Status:** Planned
 
@@ -293,7 +390,7 @@ Live notes use a Tone.js PolySynth on the shared audio context until `plantasia-
 - [ ] Core React components (`src/components/`)
 - [ ] Bootstrap component integration with design tokens
 
-## Milestone 12 — Full Plantasia Foundation
+## Milestone 14 — Full Plantasia Foundation
 
 **Status:** Planned
 

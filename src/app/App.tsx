@@ -14,9 +14,14 @@ export function App() {
         <TopOverlay
           audioIndicator={instrument.overlay.audioIndicator}
           presetName={instrument.overlay.presetName}
+          organismStateLabel={instrument.overlay.organismStateLabel}
           midiIndicator={instrument.overlay.midiIndicator}
           midiDeviceName={instrument.overlay.midiDeviceName}
           lastNoteLabel={instrument.overlay.lastNoteLabel}
+          lastMidiMessage={instrument.overlay.lastMidiMessage}
+          learnLabel={instrument.overlay.learnLabel}
+          mappingCount={instrument.overlay.mappingCount}
+          lastCcLabel={instrument.overlay.lastCcLabel}
         />
       }
       visualizer={<OrganismView ascii={instrument.organismAscii} />}

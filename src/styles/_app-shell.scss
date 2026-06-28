@@ -37,10 +37,12 @@ body,
 .organism-view__ascii {
   color: var(--plantasia-color-organism);
   font-family: var(--plantasia-font-mono);
-  font-size: clamp(0.8125rem, 2vw, 1.0625rem);
-  letter-spacing: 0.06em;
-  line-height: 1.35;
+  font-size: clamp(0.4375rem, 0.95vw, 0.6875rem);
+  letter-spacing: 0.04em;
+  line-height: 1.15;
   margin: 0;
+  max-height: 100%;
+  max-width: min(96vw, 52rem);
   overflow: hidden;
   text-align: center;
   white-space: pre;

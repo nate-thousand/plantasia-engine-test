@@ -206,6 +206,49 @@
   opacity: 0.72;
 }
 
+.control-slider--midi .control-slider__value {
+  color: var(--plantasia-color-accent, var(--plantasia-color-primary));
+}
+
+.control-slider--learn .control-slider__label {
+  color: var(--plantasia-color-primary);
+}
+
+.control-slider__learn-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  padding: 0;
+  text-transform: inherit;
+}
+
+.control-slider__learn-btn:hover:not(:disabled) {
+  color: var(--plantasia-color-primary);
+}
+
+.control-midi-meta {
+  color: var(--plantasia-color-text-secondary);
+  font-family: var(--plantasia-font-mono);
+  font-size: 0.5rem;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+}
+
+.control-midi-learn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.control-midi-learn__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
 @media (max-width: 960px) {
   .control-dock {
     grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));

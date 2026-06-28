@@ -6,9 +6,16 @@ export type MidiDeviceInfo = {
   name: string;
 };
 
+export type ActiveNoteState = {
+  midi: number;
+  velocity: number;
+  label: string;
+};
+
 export type EngineStoreState = {
   audioReady: boolean;
   isInitializing: boolean;
+  activeNotes: ActiveNoteState[];
   activeNoteCount: number;
   inputEnergy: number;
   lastNoteLabel: string | null;
@@ -23,6 +30,7 @@ export type EngineStoreState = {
 const initialState: EngineStoreState = {
   audioReady: false,
   isInitializing: false,
+  activeNotes: [],
   activeNoteCount: 0,
   inputEnergy: 0,
   lastNoteLabel: null,
@@ -56,19 +64,44 @@ export function resetEngineStore(): void {
   listeners.forEach((listener) => listener());
 }
 
+function averageVelocity(notes: ActiveNoteState[]): number {
+  if (notes.length === 0) {
+    return 0;
+  }
+  const sum = notes.reduce((total, note) => total + note.velocity, 0);
+  return Math.round((sum / notes.length / 127) * 100);
+}
+
 export function registerNoteOn(midi: number, velocity: number): void {
+  const label = formatNoteLabel(midi);
+  const existing = state.activeNotes.filter((note) => note.midi !== midi);
+  const activeNotes = [...existing, { midi, velocity, label }];
+
   patchEngineStore({
-    activeNoteCount: state.activeNoteCount + 1,
-    inputEnergy: Math.round((velocity / 127) * 100),
-    lastNoteLabel: formatNoteLabel(midi),
+    activeNotes,
+    activeNoteCount: activeNotes.length,
+    inputEnergy: averageVelocity(activeNotes),
+    lastNoteLabel: label,
   });
 }
 
-export function registerNoteOff(): void {
-  const nextCount = Math.max(0, state.activeNoteCount - 1);
+export function registerNoteOff(midi: number): void {
+  const activeNotes = state.activeNotes.filter((note) => note.midi !== midi);
+
   patchEngineStore({
-    activeNoteCount: nextCount,
-    inputEnergy: nextCount > 0 ? state.inputEnergy : 0,
+    activeNotes,
+    activeNoteCount: activeNotes.length,
+    inputEnergy: averageVelocity(activeNotes),
+    lastNoteLabel:
+      activeNotes.length > 0 ? activeNotes[activeNotes.length - 1].label : state.lastNoteLabel,
+  });
+}
+
+export function clearActiveNotes(): void {
+  patchEngineStore({
+    activeNotes: [],
+    activeNoteCount: 0,
+    inputEnergy: 0,
   });
 }
 

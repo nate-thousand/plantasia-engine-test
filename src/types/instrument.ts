@@ -1,3 +1,5 @@
+import type { ActiveNoteState } from '../stores/engineStore';
+
 /** Base transport / organism visual modes. */
 export type InstrumentVisualState = 'dormant' | 'active' | 'playing' | 'resting';
 
@@ -15,10 +17,16 @@ export type MidiControlSurface = {
   selectedDeviceName: string | null;
   lastNoteLabel: string | null;
   learnEnabled: boolean;
+  learnTarget: string | null;
+  lastMessage: string | null;
+  lastCcNumber: number | null;
+  mappingCount: number;
+  detectedCcs: Record<number, number>;
   supported: boolean;
   onConnect: () => void;
   onSelectDevice: (deviceId: string) => void;
   onToggleLearn: () => void;
+  onSelectLearnTarget: (target: import('../input/MidiDefaults').MidiControlTarget | null) => void;
 };
 
 /** Normalized slider values (0–100). */
@@ -37,6 +45,11 @@ export type ModulationControlValues = {
   energy: number;
 };
 
+export type PresetSummary = {
+  id: string;
+  name: string;
+};
+
 /** Parameters passed to the organism builder. */
 export type OrganismVisualParams = {
   visualState: InstrumentVisualState;
@@ -46,17 +59,20 @@ export type OrganismVisualParams = {
   mutation: number;
   /** Sound bloom slider — drives bloom glyph scale when > 0. */
   bloom: number;
-  /** Sound tone slider — visual highlight intensity (audio deferred). */
+  /** Sound tone slider — visual highlight intensity. */
   tone: number;
-  /** Sound texture slider — visual density band (audio deferred). */
+  /** Sound texture slider — visual density band. */
   texture: number;
-  /** Modulation growth slider — visual reach extension (audio deferred). */
+  /** Sound volume slider — visual amplitude / density intensity. */
+  volume: number;
+  /** Modulation growth slider — visual reach extension. */
   growthRate: number;
-  /** Modulation drift slider — visual asymmetry (audio deferred). */
+  /** Modulation drift slider — visual asymmetry. */
   drift: number;
-};
-
-export type PresetSummary = {
-  id: string;
-  name: string;
+  /** Active held notes from keyboard / MIDI. */
+  activeNotes: ActiveNoteState[];
+  /** Most recently triggered note. */
+  lastNote: ActiveNoteState | null;
+  /** Current preset summary for visual identity. */
+  preset: PresetSummary | null;
 };

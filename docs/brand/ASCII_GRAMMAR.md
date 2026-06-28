@@ -426,6 +426,64 @@ Visual state
 Nothing is decorative.
 Everything represents the living musical ecosystem.
 
+## Visual Mapping (Engine Test)
+
+The `plantasia-engine-test` instrument maps musical input to grammar symbols procedurally.
+
+### Note → Form
+
+| Pitch | Visual role | Primary glyphs |
+|-------|-------------|----------------|
+| C | Seed / center / root | `+` `•` |
+| C# / Db | Mutation / diagonal disruption | `╳` `╱` |
+| D | Upward growth | `│` `•` |
+| D# / Eb | Curved growth | `╮` |
+| E | Branch | `╱` `●` |
+| F | Root spread | `╲` `●` |
+| F# / Gb | Tension / cross mutation | `╳` |
+| G | Harmony / connection | `┼` `─` |
+| G# / Ab | Shimmer / particle field | `·` |
+| A | Bloom / expansion | `●` flower arms |
+| A# / Bb | Asymmetry / variation | `╮` `╱` |
+| B | Resolution / return to center | `┼` `─` `•` |
+
+### Octave → Placement
+
+- Lower octaves (≤2): rootward (+Y)
+- Middle octaves (3–4): outward from center
+- Higher octaves (≥5): bloomward (−Y)
+
+### Velocity → Density
+
+| Velocity | Node | Texture |
+|----------|------|---------|
+| Low (0–42) | `·` | `░` |
+| Medium (43–84) | `•` | `▒` |
+| High (85–127) | `●` | `▓` |
+
+### Slider → Visual
+
+| Control | Visual effect |
+|---------|----------------|
+| Volume | Particle row amplitude / density intensity |
+| Tone | Brightness halo (`●` vs `·`) |
+| Texture | `░▒▓` texture band width |
+| Bloom | Flower cross scale |
+| Growth | Upward reach / branch length |
+| Drift | Asymmetric soft-particle offsets |
+| Mutation | `╳` hub disruption |
+| Energy | Particle count and density mix |
+
+### Chord → Structure
+
+- **Consonant intervals** (unison, thirds, fourths, fifths, octaves): symmetrical harmony diamond
+- **Dissonant intervals** (minor seconds, tritones): tension cross with `╳`
+- **Dense clusters** (3+ notes within 5 semitones): increased `▒▓` texture
+
+### Preset → Identity
+
+Fallback visual identity from preset id / category: archetype, growth style (upward / network / radial), mutation bias, bloom shape.
+
 ## Design Rules
 
 Add these rules:

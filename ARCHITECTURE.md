@@ -92,6 +92,53 @@ No component-level Bootstrap customization in the foundation phase.
 | `docs/design/` | Design token and layout documentation |
 | `docs/engineering/` | Workflow and integration guides |
 
+## Visual Pipeline (Milestone 9)
+
+Note-driven ASCII rendering follows a strict data flow — React never hardcodes organism artwork.
+
+```
+Keyboard / MIDI / Sliders / Preset
+        ↓
+  engineStore (activeNotes, inputEnergy)
+  controlStore (sound, modulation)
+        ↓
+  buildOrganismState() — OrganismState.ts
+        ↓
+  buildOrganismFromState() — OrganismMappings.ts
+        ↓
+  Renderer → ASCII string → OrganismView
+```
+
+## MIDI Pipeline (Milestone 10)
+
+MIDI logic lives outside React components.
+
+```
+MIDI Device
+    ↓
+MidiInput.ts          (Web MIDI device connection)
+    ↓
+MidiMessageParser.ts  (note / CC / program change)
+    ↓
+MidiRouter.ts         (dispatch)
+    ├→ MidiLearn.ts + MidiControlMap.ts → controlStore → EngineAdapter
+    ├→ engineStore (active notes, velocity energy)
+    └→ action handlers (preset, transport, hold)
+        ↓
+OrganismState → Renderer
+```
+
+| Module | Role |
+|--------|------|
+| `MidiDefaults.ts` | Standard CC map, MPK Mini fallback, pad defaults |
+| `MidiMessageParser.ts` | Parse raw MIDI bytes |
+| `MidiControlMap.ts` | CC → control target (learned → standard → MPK) |
+| `MidiLearn.ts` | Learn workflow |
+| `MidiStorage.ts` | `plantasia-midi-mappings` in localStorage |
+| `MidiRouter.ts` | Route messages to stores and engine |
+| `controlStore.ts` | Canonical slider values (UI + MIDI) |
+| `midiStore.ts` | Last message, detected CCs, learn state |
+
 ## Foundation Status
 
-Current build provides folder contracts, configuration, and documentation only. Runtime features land per [ROADMAP.md](./ROADMAP.md).
+Current build provides a fully MIDI-controllable instrument with note-driven ASCII visualization. See [ROADMAP.md](./ROADMAP.md).
