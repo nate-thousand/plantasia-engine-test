@@ -237,15 +237,47 @@ Wire transport and preset controls to the engine. Volume drives output gain. Oth
 
 ---
 
-## Milestone 8 — MIDI and Sequencing
+## Milestone 8 — Playable Input: MIDI and Computer Keyboard
+
+**Status:** Complete
+
+### Goals
+
+Make Plantasia playable from the computer keyboard and Web MIDI devices (including Akai MPK Mini) without turning the app into a developer dashboard.
+
+### Tasks
+
+- [x] Computer keyboard map (A–K row) with keydown/keyup, repeat suppression, form-field ignore
+- [x] Web MIDI access after user gesture, device list, selector, note on/off with velocity
+- [x] `EngineAdapter` facade — `startAudio`, `noteOn`, `noteOff`, `stopAllNotes` (no direct engine calls from React)
+- [x] `engineStore` for input state, active notes, velocity energy, last note
+- [x] Visual feedback — playing/resting from held notes, velocity → energy density, MIDI activity pulse
+- [x] Keyboard and MIDI control groups in bottom dock; device + last note in top overlay
+
+### Architecture
+
+| Layer | Path |
+|-------|------|
+| Note map | `src/input/noteMap.ts` |
+| Keyboard | `src/input/KeyboardInput.ts` |
+| MIDI | `src/input/MidiInput.ts` |
+| Engine facade | `src/audio/EngineAdapter.ts` |
+| Input state | `src/stores/engineStore.ts` |
+| Hook wiring | `src/hooks/useInstrument.ts` |
+| Controls | `src/components/controls/KeyboardControls.tsx`, `MidiControls.tsx` |
+
+Live notes use a Tone.js PolySynth on the shared audio context until `plantasia-sound-engine` exposes `noteOn`/`noteOff`.
+
+---
+
+## Milestone 9 — Sequencing
 
 **Status:** Planned
 
-- [ ] Web MIDI input routing (`src/audio/midi/`)
 - [ ] Transport and pattern playback (`src/audio/sequencing/`)
 - [ ] Hook engine sequencer exports when available
 
-## Milestone 9 — Visualization Hooks
+## Milestone 10 — Visualization Hooks
 
 **Status:** Planned
 
@@ -253,7 +285,7 @@ Wire transport and preset controls to the engine. Volume drives output gain. Oth
 - [ ] Engine-driven organism updates (`Node.applyEngineUpdate`)
 - [ ] Canvas render loop scaffold (`src/canvas/`)
 
-## Milestone 10 — Application Shell Expansion
+## Milestone 11 — Application Shell Expansion
 
 **Status:** Planned
 
@@ -261,13 +293,24 @@ Wire transport and preset controls to the engine. Volume drives output gain. Oth
 - [ ] Core React components (`src/components/`)
 - [ ] Bootstrap component integration with design tokens
 
-## Milestone 11 — Full Plantasia Foundation
+## Milestone 12 — Full Plantasia Foundation
 
 **Status:** Planned
 
 - [ ] End-to-end playable instrument surface
 - [ ] Preset identity tied to ASCII grammar
 - [ ] Migration path from playground to production app structure
+
+---
+
+## Control Dock Alignment Pass
+
+**Status:** Complete
+
+- [x] MIDI controls aligned with existing control dock
+- [x] MIDI controls use shared group styling
+- [x] No sound behavior changed
+- [x] No sound engine code modified
 
 ## Out of Scope for This Repository
 

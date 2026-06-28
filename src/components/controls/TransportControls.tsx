@@ -8,7 +8,7 @@ type TransportControlsProps = {
 
 export function TransportControls({ transport }: TransportControlsProps) {
   return (
-    <ControlGroup label="Transport">
+    <ControlGroup label="Transport" className="control-group--compact">
       <ControlButton
         label={transport.isInitializing ? 'Starting…' : 'Start Audio'}
         disabled={transport.audioReady || transport.isInitializing}

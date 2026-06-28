@@ -1,12 +1,21 @@
-import { useCallback, useMemo, useState } from 'react';
-import { setOutputVolume, startAudioEngine, playEngineNote, stopEngineNote } from '../audio/engine';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { engineAdapter } from '../audio/EngineAdapter';
+import { startAudioEngine, playEngineNote, stopEngineNote } from '../audio/engine';
 import {
   getPresetCatalog,
   loadPresetAtIndex,
   randomPresetIndex,
 } from '../audio/presets';
+import { KeyboardInput } from '../input/KeyboardInput';
+import { MidiInputManager } from '../input/MidiInput';
+import {
+  getEngineStore,
+  patchEngineStore,
+  registerNoteOff,
+  registerNoteOn,
+  subscribeEngineStore,
+} from '../stores/engineStore';
 import type {
-  MidiSurfaceState,
   ModulationControlValues,
   OrganismVisualParams,
   PresetSummary,
@@ -35,73 +44,176 @@ const DEFAULT_MODULATION: ModulationControlValues = {
 };
 
 export function useInstrument() {
-  const [visualState, setVisualState] = useState<InstrumentVisualState>('dormant');
-  const [audioReady, setAudioReady] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(false);
+  const engineStore = useSyncExternalStore(subscribeEngineStore, getEngineStore, getEngineStore);
+  const [manualVisual, setManualVisual] = useState<InstrumentVisualState>('dormant');
   const [holdEnabled, setHoldEnabled] = useState(false);
+  const [midiLearn, setMidiLearn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [presets, setPresets] = useState<PresetSummary[]>([]);
   const [presetIndex, setPresetIndex] = useState(0);
   const [sound, setSound] = useState<SoundControlValues>(DEFAULT_SOUND);
   const [modulation, setModulation] = useState<ModulationControlValues>(DEFAULT_MODULATION);
-  const [midiLearn, setMidiLearn] = useState(false);
-  const [midiState] = useState<MidiSurfaceState>('off');
+  const [midiPulse, setMidiPulse] = useState(false);
 
-  const organismParams: OrganismVisualParams = useMemo(
-    () => ({
+  const keyboardRef = useRef<KeyboardInput | null>(null);
+  const midiRef = useRef<MidiInputManager | null>(null);
+
+  const audioReady = engineStore.audioReady;
+  const isInitializing = engineStore.isInitializing;
+
+  const visualState: InstrumentVisualState = useMemo(() => {
+    if (!audioReady) {
+      return 'dormant';
+    }
+
+    if (engineStore.activeNoteCount > 0) {
+      return 'playing';
+    }
+
+    if (manualVisual === 'dormant') {
+      return 'active';
+    }
+
+    return manualVisual;
+  }, [audioReady, engineStore.activeNoteCount, manualVisual]);
+
+  const organismParams: OrganismVisualParams = useMemo(() => {
+    const pulseBoost = midiPulse ? 20 : 0;
+    const baseEnergy =
+      engineStore.activeNoteCount > 0
+        ? Math.max(modulation.energy, engineStore.inputEnergy)
+        : modulation.energy;
+
+    return {
       visualState,
-      energy: modulation.energy,
+      energy: Math.min(100, baseEnergy + pulseBoost),
       mutation: modulation.mutation,
       bloom: sound.bloom,
       tone: sound.tone,
       texture: sound.texture,
       growthRate: modulation.growthRate,
       drift: modulation.drift,
-    }),
-    [
-      visualState,
-      modulation.energy,
-      modulation.mutation,
-      modulation.growthRate,
-      modulation.drift,
-      sound.bloom,
-      sound.tone,
-      sound.texture,
-    ],
-  );
+    };
+  }, [
+    visualState,
+    modulation.energy,
+    modulation.mutation,
+    modulation.growthRate,
+    modulation.drift,
+    sound.bloom,
+    sound.tone,
+    sound.texture,
+    engineStore.activeNoteCount,
+    engineStore.inputEnergy,
+    midiPulse,
+  ]);
 
   const organism = useMemo(() => createOrganismForParams(organismParams), [organismParams]);
   const organismAscii = useMemo(() => renderOrganism(organism), [organism]);
 
   const currentPresetName = audioReady ? (presets[presetIndex]?.name ?? '—') : '—';
 
-  const startAudio = useCallback(async () => {
-    setError(null);
-    setIsInitializing(true);
+  const handleNoteOn = useCallback((midi: number, velocity: number) => {
+    if (!engineAdapter.isAudioRunning()) {
+      return;
+    }
 
     try {
-      await startAudioEngine({ volume: sound.volume });
+      engineAdapter.noteOn(midi, velocity);
+      registerNoteOn(midi, velocity);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Note could not play.';
+      setError(message);
+    }
+  }, []);
+
+  const handleNoteOff = useCallback((midi: number) => {
+    engineAdapter.noteOff(midi);
+    registerNoteOff();
+  }, []);
+
+  useEffect(() => {
+    if (audioReady && engineStore.activeNoteCount === 0 && manualVisual === 'playing') {
+      setManualVisual('resting');
+    }
+  }, [audioReady, engineStore.activeNoteCount, manualVisual]);
+
+  useEffect(() => {
+    if (engineStore.midiActivityTick === 0) {
+      return;
+    }
+
+    setMidiPulse(true);
+    const timeoutId = window.setTimeout(() => setMidiPulse(false), 180);
+    return () => window.clearTimeout(timeoutId);
+  }, [engineStore.midiActivityTick]);
+
+  useEffect(() => {
+    const keyboard = new KeyboardInput({
+      onNoteOn: (midi, velocity) => handleNoteOn(midi, velocity),
+      onNoteOff: (midi) => handleNoteOff(midi),
+    });
+
+    keyboardRef.current = keyboard;
+    keyboard.attach();
+
+    const midi = new MidiInputManager({
+      onNoteOn: (midi, velocity) => handleNoteOn(midi, velocity),
+      onNoteOff: (midi) => handleNoteOff(midi),
+    });
+
+    midiRef.current = midi;
+
+    return () => {
+      keyboard.detach();
+      midi.disconnect();
+      keyboardRef.current = null;
+      midiRef.current = null;
+    };
+  }, [handleNoteOn, handleNoteOff]);
+
+  useEffect(() => {
+    keyboardRef.current?.setEnabled(audioReady && engineStore.keyboardEnabled);
+  }, [audioReady, engineStore.keyboardEnabled]);
+
+  const applySurface = useCallback(
+    (soundValues: SoundControlValues, modulationValues: ModulationControlValues) => {
+      if (!audioReady) {
+        return;
+      }
+
+      engineAdapter.applyControlSurface(soundValues, modulationValues);
+    },
+    [audioReady],
+  );
+
+  const startAudio = useCallback(async () => {
+    setError(null);
+    patchEngineStore({ isInitializing: true });
+
+    try {
+      await startAudioEngine();
       const catalog = getPresetCatalog().map((preset) => ({
         id: preset.id,
         name: preset.name,
       }));
       setPresets(catalog);
       setPresetIndex(0);
-      loadPresetAtIndex(0);
-      setAudioReady(true);
-      setVisualState('active');
+      engineAdapter.applyControlSurface(sound, modulation);
+      await loadPresetAtIndex(0);
+      patchEngineStore({ audioReady: true, isInitializing: false, keyboardEnabled: true });
+      setManualVisual('active');
     } catch (caught) {
       const message =
         caught instanceof Error ? caught.message : 'Audio could not start.';
       console.error('[Plantasia Engine Test] Audio start failed:', caught);
       setError(message);
-    } finally {
-      setIsInitializing(false);
+      patchEngineStore({ isInitializing: false });
     }
-  }, [sound.volume]);
+  }, [sound, modulation]);
 
   const selectPreset = useCallback(
-    (index: number) => {
+    async (index: number) => {
       if (!audioReady || presets.length === 0) {
         return;
       }
@@ -109,14 +221,15 @@ export function useInstrument() {
       const wrapped = ((index % presets.length) + presets.length) % presets.length;
 
       try {
-        loadPresetAtIndex(wrapped);
+        engineAdapter.applyControlSurface(sound, modulation);
+        await loadPresetAtIndex(wrapped);
         setPresetIndex(wrapped);
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : 'Preset could not load.';
         setError(message);
       }
     },
-    [audioReady, presets.length],
+    [audioReady, presets.length, sound, modulation],
   );
 
   const play = useCallback(() => {
@@ -126,7 +239,7 @@ export function useInstrument() {
 
     try {
       playEngineNote();
-      setVisualState('playing');
+      setManualVisual('playing');
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Note could not play.';
       setError(message);
@@ -140,7 +253,8 @@ export function useInstrument() {
 
     try {
       stopEngineNote();
-      setVisualState('resting');
+      patchEngineStore({ activeNoteCount: 0, inputEnergy: 0 });
+      setManualVisual('resting');
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Note could not stop.';
       setError(message);
@@ -149,30 +263,51 @@ export function useInstrument() {
 
   const updateSound = useCallback(
     (key: keyof SoundControlValues, value: number) => {
-      setSound((current) => ({ ...current, [key]: value }));
-
-      if (key === 'volume' && audioReady) {
-        setOutputVolume(value);
-      }
-
-      // Tone, texture, bloom: organism visual mapping only — audio deferred.
+      setSound((current) => {
+        const next = { ...current, [key]: value };
+        if (audioReady) {
+          engineAdapter.applySoundControls(next, modulation);
+        }
+        return next;
+      });
     },
-    [audioReady],
+    [modulation, audioReady],
   );
 
-  const updateModulation = useCallback((key: keyof ModulationControlValues, value: number) => {
-    setModulation((current) => ({ ...current, [key]: value }));
-    // Growth, drift, mutation, energy: organism visual mapping only — audio deferred.
-  }, []);
+  const updateModulation = useCallback(
+    (key: keyof ModulationControlValues, value: number) => {
+      setModulation((current) => {
+        const next = { ...current, [key]: value };
+        applySurface(sound, next);
+        return next;
+      });
+    },
+    [sound, applySurface],
+  );
 
   const toggleHold = useCallback(() => {
     setHoldEnabled((current) => !current);
-    // Hold: placeholder — future sustain / voice hold behavior.
   }, []);
 
   const toggleMidiLearn = useCallback(() => {
     setMidiLearn((current) => !current);
-    // MIDI Learn: placeholder — future Web MIDI milestone.
+  }, []);
+
+  const connectMidi = useCallback(async () => {
+    setError(null);
+
+    try {
+      await midiRef.current?.connect();
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : 'MIDI could not connect.';
+      setError(message);
+      patchEngineStore({ midiState: 'off' });
+    }
+  }, []);
+
+  const selectMidiDevice = useCallback((deviceId: string) => {
+    midiRef.current?.selectDevice(deviceId);
   }, []);
 
   return {
@@ -180,7 +315,9 @@ export function useInstrument() {
     overlay: {
       audioIndicator: visualStateIndicator(visualState),
       presetName: currentPresetName,
-      midiIndicator: midiStateIndicator(midiState),
+      midiIndicator: midiStateIndicator(engineStore.midiState),
+      midiDeviceName: engineStore.selectedDeviceName,
+      lastNoteLabel: engineStore.lastNoteLabel,
     },
     transport: {
       audioReady,
@@ -207,9 +344,19 @@ export function useInstrument() {
       values: modulation,
       onChange: updateModulation,
     },
+    keyboard: {
+      enabled: engineStore.keyboardEnabled && audioReady,
+    },
     midi: {
-      state: midiState,
+      state: engineStore.midiState,
+      devices: engineStore.midiDevices,
+      selectedDeviceId: engineStore.selectedDeviceId,
+      selectedDeviceName: engineStore.selectedDeviceName,
+      lastNoteLabel: engineStore.lastNoteLabel,
       learnEnabled: midiLearn,
+      supported: MidiInputManager.isSupported(),
+      onConnect: () => void connectMidi(),
+      onSelectDevice: selectMidiDevice,
       onToggleLearn: toggleMidiLearn,
     },
     error,

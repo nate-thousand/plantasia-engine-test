@@ -1,8 +1,25 @@
 /** Base transport / organism visual modes. */
 export type InstrumentVisualState = 'dormant' | 'active' | 'playing' | 'resting';
 
-/** MIDI surface state — placeholder until Web MIDI milestone. */
+/** Web MIDI connection state. */
 export type MidiSurfaceState = 'off' | 'pending' | 'connected';
+
+export type KeyboardControlSurface = {
+  enabled: boolean;
+};
+
+export type MidiControlSurface = {
+  state: MidiSurfaceState;
+  devices: { id: string; name: string }[];
+  selectedDeviceId: string | null;
+  selectedDeviceName: string | null;
+  lastNoteLabel: string | null;
+  learnEnabled: boolean;
+  supported: boolean;
+  onConnect: () => void;
+  onSelectDevice: (deviceId: string) => void;
+  onToggleLearn: () => void;
+};
 
 /** Normalized slider values (0–100). */
 export type SoundControlValues = {

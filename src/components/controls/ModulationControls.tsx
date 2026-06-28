@@ -9,19 +9,17 @@ type ModulationControlsProps = {
 
 export function ModulationControls({ modulation, audioReady }: ModulationControlsProps) {
   return (
-    <ControlGroup label="Modulation">
+    <ControlGroup label="Modulation" className="control-group--sliders">
       <ControlSlider
         label="Growth"
         value={modulation.values.growthRate}
         disabled={!audioReady}
-        placeholder
         onChange={(value) => modulation.onChange('growthRate', value)}
       />
       <ControlSlider
         label="Drift"
         value={modulation.values.drift}
         disabled={!audioReady}
-        placeholder
         onChange={(value) => modulation.onChange('drift', value)}
       />
       <ControlSlider

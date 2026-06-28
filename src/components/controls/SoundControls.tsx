@@ -9,7 +9,7 @@ type SoundControlsProps = {
 
 export function SoundControls({ sound, audioReady }: SoundControlsProps) {
   return (
-    <ControlGroup label="Sound">
+    <ControlGroup label="Sound" className="control-group--sliders">
       <ControlSlider
         label="Volume"
         value={sound.values.volume}
@@ -20,14 +20,12 @@ export function SoundControls({ sound, audioReady }: SoundControlsProps) {
         label="Tone"
         value={sound.values.tone}
         disabled={!audioReady}
-        placeholder
         onChange={(value) => sound.onChange('tone', value)}
       />
       <ControlSlider
         label="Texture"
         value={sound.values.texture}
         disabled={!audioReady}
-        placeholder
         onChange={(value) => sound.onChange('texture', value)}
       />
       <ControlSlider

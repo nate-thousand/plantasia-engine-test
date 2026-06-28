@@ -10,16 +10,15 @@ type ControlDockProps = {
 };
 
 export function ControlDock({ instrument }: ControlDockProps) {
+  const audioReady = instrument.transport.audioReady;
+
   return (
     <div className="control-dock">
       <TransportControls transport={instrument.transport} />
-      <PresetControls presets={instrument.presets} audioReady={instrument.transport.audioReady} />
-      <SoundControls sound={instrument.sound} audioReady={instrument.transport.audioReady} />
-      <ModulationControls
-        modulation={instrument.modulation}
-        audioReady={instrument.transport.audioReady}
-      />
-      <MidiControls midi={instrument.midi} />
+      <PresetControls presets={instrument.presets} audioReady={audioReady} />
+      <SoundControls sound={instrument.sound} audioReady={audioReady} />
+      <ModulationControls modulation={instrument.modulation} audioReady={audioReady} />
+      <MidiControls midi={instrument.midi} audioReady={audioReady} />
     </div>
   );
 }

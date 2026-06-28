@@ -15,6 +15,8 @@ export function App() {
           audioIndicator={instrument.overlay.audioIndicator}
           presetName={instrument.overlay.presetName}
           midiIndicator={instrument.overlay.midiIndicator}
+          midiDeviceName={instrument.overlay.midiDeviceName}
+          lastNoteLabel={instrument.overlay.lastNoteLabel}
         />
       }
       visualizer={<OrganismView ascii={instrument.organismAscii} />}

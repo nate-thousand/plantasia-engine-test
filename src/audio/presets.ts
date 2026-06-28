@@ -1,4 +1,5 @@
 import type { PlantasiaPreset } from 'plantasia-sound-engine';
+import { engineAdapter } from './EngineAdapter';
 import { getPlantasiaEngine } from './engine';
 
 /** Read bundled presets from the engine package. */
@@ -7,7 +8,7 @@ export function getPresetCatalog(): PlantasiaPreset[] {
 }
 
 /** Load a preset by catalog index. */
-export function loadPresetAtIndex(index: number): PlantasiaPreset {
+export async function loadPresetAtIndex(index: number): Promise<PlantasiaPreset> {
   const presets = getPresetCatalog();
   const preset = presets[index];
 
@@ -16,11 +17,12 @@ export function loadPresetAtIndex(index: number): PlantasiaPreset {
   }
 
   getPlantasiaEngine().playPreset(preset);
+  await engineAdapter.preparePreset(preset);
   return preset;
 }
 
 /** Load a preset by id. */
-export function loadPresetById(id: string): PlantasiaPreset {
+export async function loadPresetById(id: string): Promise<PlantasiaPreset> {
   const preset = getPresetCatalog().find((entry) => entry.id === id);
 
   if (!preset) {
@@ -28,6 +30,7 @@ export function loadPresetById(id: string): PlantasiaPreset {
   }
 
   getPlantasiaEngine().playPreset(preset);
+  await engineAdapter.preparePreset(preset);
   return preset;
 }
 

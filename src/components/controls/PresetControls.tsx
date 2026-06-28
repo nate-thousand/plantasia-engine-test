@@ -9,9 +9,9 @@ type PresetControlsProps = {
 
 export function PresetControls({ presets, audioReady }: PresetControlsProps) {
   return (
-    <ControlGroup label="Preset">
+    <ControlGroup label="Preset" className="control-group--compact">
       <select
-        className="control-select"
+        className="control-select control-select--wide"
         value={presets.index}
         disabled={!audioReady || presets.items.length === 0}
         onChange={(event) => presets.onSelect(Number(event.target.value))}
