@@ -1,6 +1,7 @@
 import { PlantasiaEngine, type PlantasiaPreset } from 'plantasia-sound-engine';
 import { midiToNoteName } from '../input/noteMap';
 import type { ModulationControlValues, SoundControlValues } from '../types/instrument';
+import { ambientSoundscape } from './AmbientSoundscape';
 import {
   mapControlSurfaceToBotanical,
   resetAudioControls,
@@ -147,6 +148,25 @@ class EngineAdapter {
     this.getEngine().stop();
     this.liveVoice.stopAll();
     console.info(`${LOG_PREFIX} All notes stopped`);
+  }
+
+  async startAmbientPlayback(preset: PlantasiaPreset): Promise<void> {
+    if (!this.audioStarted) {
+      throw new Error('Audio context is not running. Start audio first.');
+    }
+    await ambientSoundscape.start(preset);
+  }
+
+  async stopAmbientPlayback(fade = true): Promise<void> {
+    await ambientSoundscape.stop(fade);
+  }
+
+  isAmbientPlaying(): boolean {
+    return ambientSoundscape.isActive();
+  }
+
+  applyAmbientControls(sound: SoundControlValues, modulation: ModulationControlValues): void {
+    ambientSoundscape.applyControls(sound, modulation);
   }
 
   applyChannelPressure(pressure: number): void {

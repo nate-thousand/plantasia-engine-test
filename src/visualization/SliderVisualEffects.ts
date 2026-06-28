@@ -74,11 +74,22 @@ export function buildSliderVizState(
 }
 
 /** Scene animation + density boost from slider positions. */
-export function sliderSceneIntensity(sliders: SliderVizState): {
+export function sliderSceneIntensity(
+  sliders: SliderVizState,
+  renderMode: import('./VisualMode').VisualRenderMode = 'activePlay',
+): {
   energy: number;
   amplitude: number;
   animSpeed: number;
 } {
+  if (renderMode === 'idleHome') {
+    return {
+      energy: 0.05,
+      amplitude: 0.02,
+      animSpeed: 0.24,
+    };
+  }
+
   return {
     energy: feedbackScale(0.15 + sliders.energy * 0.85 + sliders.growthRate * 0.25, 4),
     amplitude: feedbackScale(0.08 + sliders.mold * 0.35 + sliders.combined * 0.35, 3.5),
@@ -145,7 +156,12 @@ export function paintSliderReactiveOverlays(
   paint: SliderPaintFn,
   interactionPulse = 0,
   visualEnergy = 0,
+  renderMode: import('./VisualMode').VisualRenderMode = 'activePlay',
 ): void {
+  if (renderMode === 'idleHome') {
+    return;
+  }
+
   const ground = height - 2;
   const cx = Math.floor(width / 2);
   const pulse = Math.max(interactionPulse / 127, visualEnergy);

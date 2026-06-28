@@ -3,12 +3,11 @@ import {
   applyTemporaryBoost,
   applyMidiTargetValue,
 } from '../stores/controlStore';
-import { registerNoteOff, registerNoteOn, pulseMidiActivity } from '../stores/engineStore';
+import { pulseMidiActivity } from '../stores/engineStore';
 import {
   logUnknownPad,
   patchMidiStore,
   pulseInteractionBurst,
-  pulseScreenFeedback,
   recordCcDetection,
   recordMidiMessage,
   setChannelPressure,
@@ -16,6 +15,8 @@ import {
   setPitchBend,
   triggerMidiVisualEffect,
 } from '../stores/midiStore';
+import { transportNoteOff, transportNoteOn } from '../transport/transportActions';
+import { getHoldEnabled } from '../transport/transportStore';
 import {
   isActionTarget,
   isSliderTarget,
@@ -183,9 +184,7 @@ function handleNoteOn(
   }
 
   try {
-    engineAdapter.noteOn(note, velocity);
-    registerNoteOn(note, velocity, 'midi');
-    pulseScreenFeedback(velocity, 'padHit');
+    transportNoteOn(note, velocity, 'midi');
     recordMidiMessage(`Note ch${channel + 1} ${note} v${velocity}`);
   } catch (error) {
     console.error('[Plantasia MIDI] Note on failed:', error);
@@ -197,9 +196,11 @@ function handleNoteOff(note: number, channel: number): void {
     return;
   }
 
-  engineAdapter.noteOff(note);
-  registerNoteOff(note);
-  pulseScreenFeedback(50, 'padHit');
+  if (getHoldEnabled()) {
+    return;
+  }
+
+  transportNoteOff(note);
   recordMidiMessage(`Note Off ch${channel + 1} ${note}`);
 }
 

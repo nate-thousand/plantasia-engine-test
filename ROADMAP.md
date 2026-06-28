@@ -1,5 +1,7 @@
 # Roadmap
 
+**Current release: v1.2** (`VERSION` · `package.json` 1.2.0)
+
 Implementation plan for `plantasia-engine-test`. Each milestone builds on the foundation established in v0.1.0.
 
 ## Milestone 1 — App Shell and Visual Foundation
@@ -568,6 +570,347 @@ VizInputSnapshot.energy + energyBehavior → AsciiEngine → IdleScenePainters /
 - [ ] Per-preset idle painter QA pass on mobile viewports
 - [ ] Wire `visualEnergy` to accessibility density slider as a multiplier
 - [ ] FigJam-style preset mood boards synced to idle theme keys
+
+### Milestone 12D — Musical Color Theory (Scriabin) Integration — complete
+
+Single authoritative Scriabin Prometheus color system drives all note, key, and Camelot color behavior. Presets keep their identity; musical color tints highlights, glow, particles, and transitions.
+
+#### Scriabin note → HEX palette
+
+| Note | Scriabin | HEX |
+|------|----------|-----|
+| C | Deep Red | `#B84A48` |
+| G | Orange Red | `#C87848` |
+| D | Golden Yellow | `#C4A05A` |
+| A | Green | `#68A870` |
+| E | Sky Blue | `#58A4C4` |
+| B | Deep Blue | `#506898` |
+| F# | Bright Blue | `#688EC8` |
+| C# | Violet | `#8068A8` |
+| G# | Purple | `#9868A8` |
+| D# | Steel Gray | `#8A9098` |
+| A# | Rose | `#B87A8A` |
+| F | Crimson Red | `#B04858` |
+
+Minor keys use the same hue as their major tonic with reduced saturation (72%) and lightness (88%).
+
+#### Camelot mapping (examples)
+
+| Camelot | Key | Color |
+|---------|-----|-------|
+| 8B | C Major | Deep Red |
+| 5A | C Minor | Deep Red (softened) |
+| 9B | G Major | Orange Red |
+| 6A | G Minor | Orange Red (softened) |
+| 8A | A Minor | Green (softened) |
+| 12B | E Major | Sky Blue |
+
+Full 24-key wheel in `CAMELOT_COLOR_MAP` (`src/visuals/colorMusicTheory.ts`).
+
+#### Key detection logic
+
+1. **Single active note** → temporary tonal center on that pitch class (major color).
+2. **Recognizable triad** → infer root + major/minor mode (velocity-weighted scoring).
+3. **Multiple notes, no triad** → bass note as weak center.
+4. **Silence** → retain previous color; `musicalWeight` decays over ~4.2s toward preset ambient (`colorHint`).
+
+Sources: MIDI notes, computer keyboard notes (`engineStore.activeNotes`), chord inference. Preset ambient base from `PresetVisualThemes.colorHint`.
+
+#### Transition behavior
+
+- Display color interpolates over ~2.8s (`interpolateMusicalColor`) — no snapping.
+- Modulation bloom (~0.9s decay) on key change.
+- CSS `--musical-blend` / `--musical-glow-opacity` crossfade on the canvas container.
+- Priority ≥ 3 ASCII glyphs receive per-cell Scriabin tint via `AsciiRenderer.toHtml()`.
+
+#### How presets consume musical colors
+
+Preset `colorPalette` / `colorHint` remain the ambient identity. Musical color **tints** without replacing:
+
+- **ASCII** — accent glyphs (priority ≥ 5), particles (≥ 8), MIDI flares, interaction overlays
+- **Ambient glow** — container text-shadow driven by `--musical-color-r/g/b`
+- **Particles / growth / pulses / rare events** — high-priority paint layers inherit tint
+- **Preset transitions** — bloom during modulation stacks on transition overlay
+
+#### Debug panel
+
+Hidden by default. Enable with `?debug=1` or `localStorage.setItem('plantasia-debug', '1')`.
+
+Shows: current note, chord, key, Camelot, HEX, RGB, HSL, blend weight.
+
+#### Files
+
+- `src/visuals/colorMusicTheory.ts` — `NOTE_COLOR_MAP`, `CAMELOT_COLOR_MAP`, `getColorForNote()`, `getColorForCamelotKey()`, `interpolateMusicalColor()`, tonal detection
+- `src/stores/musicalColorStore.ts` — per-frame tick + smooth state
+- `src/visualization/AsciiRenderer.ts` — `setMusicalFrame()`, `toHtml()` glyph tinting
+- `src/components/debug/MusicalColorDebugPanel.tsx` — debug overlay
+- `scripts/validate-musical-color.mjs` — palette + Camelot + detection checks
+
+### Milestone — Sparse Home Idle Screen — complete
+
+Separate render modes so page load is almost empty until the user plays or interacts.
+
+#### Modes
+
+| Mode | When | Density | Motion |
+|------|------|---------|--------|
+| `idleHome` | Page load, no interaction | 0.032 (~90% ↓ vs sparse idle) | Slow breathe, 3–7 clusters |
+| `activePlay` | Audio, MIDI, keyboard, pointer, touch, slider delta | 0.32–1.35 reactive | Full visualizer |
+
+- **idleHome**: ≤5% screen coverage, no PLANTASIA figlet, no slider overlays, no full-scene wallpaper
+- **activePlay**: existing sparse + dense scene blend, title, slider overlays, particles
+- **Decay**: `playModeEnergy` falls to idle in ~5.5s after interaction stops (within 3–8s requirement)
+
+#### Files
+
+- `src/visualization/VisualMode.ts` — mode constants, `tickPlayModeEnergy()`, `behaviorForRenderMode()`
+- `src/visualization/IdleScenePainters.ts` — `paintIdleHomeScene()` (3–7 micro-clusters)
+- `src/visualization/BotanicalScenes.ts` — mode-gated title, overlays, full scene
+
+### Milestone — Visual Polish — complete
+
+Unified visual language across presets, idle, transitions, and UI.
+
+#### Preset identity
+- `resolveThemeTemplateKeyFromTheme()` — correct archetype routing for idle/overlays (fixes broken fallback)
+- Per-theme idle micro-clusters: canopy arc, rainforest drip, desert spike, winter drift, fern frond, vine curl, night bloom
+- Blended `colorHint` + palette during preset crossfade (`ThemeTransition` + Scriabin lerp)
+- UI accent (`--plantasia-color-primary`) tracks blended preset ambient on `#plantasia-app`
+
+#### Idle & composition
+- `idleHome`: 3–7 curated clusters, no logo, no wallpaper
+- Interaction overlays scale with `visualEnergy` — sparse when calm, dense when playing
+- Preset transitions: subtle 3-glyph crossfade in idle; themed burst in activePlay
+
+#### Timing & tokens
+- Shared motion tokens: `--plantasia-duration-*`, `--plantasia-ease-in-out`
+- Scene crossfade: 1.4s (matches preset transition)
+- Canvas + shell color transitions use same easing curve
+- Control dock hovers use `--plantasia-color-primary-muted` (preset-aware)
+
+---
+
+### Milestone 13B — Unified Playback Controls — complete
+
+Single transport controller for all playback — no duplicate Play buttons or scattered state.
+
+#### Transport architecture
+
+```
+UnifiedTransport (UI)
+Keyboard (Space) ──┐
+MIDI pads / CC ────┼──→ transportActions.ts ──→ EngineAdapter + engineStore + transportStore
+Programmatic ──────┘
+```
+
+| Module | Role |
+|--------|------|
+| `src/transport/transportStore.ts` | Single playback state: `idle` · `loading` · `ready` · `playing` |
+| `src/transport/transportActions.ts` | `startTransportAudio`, `transportPlay`, `transportStop`, `toggleTransportPlayStop`, notes, presets |
+| `src/transport/initTransport.ts` | One-time MIDI handler registration + Spacebar shortcut |
+| `src/transport/useTransport.ts` | React hook for UI + viz visual state |
+| `src/components/controls/UnifiedTransport.tsx` | Always-visible bar: Play · Stop · Preset · Menu |
+
+#### Playback lifecycle
+
+1. **Idle** — audio context locked; Play starts engine + plays chord burst
+2. **Loading** — Web Audio unlock + preset bootstrap
+3. **Ready** — audio running, ambient idle visuals
+4. **Playing** — chord burst and/or held notes; `visualEnergy` reactive
+
+**Stop** — releases voices, clears transient notes, returns to `ready` (preset preserved).
+
+#### Shared state
+
+- `transportStore.transportState` is authoritative; syncs `engineStore.audioReady` / `isInitializing` for ASCII viz
+- `holdEnabled` lives in transport store; keyboard + MIDI note-off respect it
+- Removed `manualVisual` React state — derived from transport + `activeNoteCount`
+
+#### Keyboard shortcuts
+
+| Key | Action |
+|-----|--------|
+| **Space** | Toggle play/stop (starts audio from idle) |
+| **A–K** | Live notes (after audio started) |
+| **Z / X** | Octave down / up |
+
+#### MIDI transport routing
+
+All MIDI transport targets (`play`, `stop`, `hold`, preset prev/next/random, program change) register once in `initTransport()` and call `transportActions` — same paths as UI buttons.
+
+Musical MIDI notes route through `transportNoteOn` / `transportNoteOff` (hold-aware).
+
+#### UI consolidation
+
+- Removed legacy `TransportControls` (power bar inside drawer)
+- Preset `<select>` moved to unified transport; drawer shows preset details + random only
+- Hold moved to Keyboard panel in settings drawer
+- Mobile: 44px min touch targets on floating transport bar
+
+---
+
+### Milestone 13C — Expressive Performance Animation System — complete
+
+Transform the ASCII visualizer from subtle reactivity into a performance instrument. **Idle unchanged; expression only while interacting.**
+
+#### Core principle
+
+| Mode | Character |
+|------|-----------|
+| **Ambient** (`idleHome`) | Sparse, slow, organic — meditation |
+| **Performance** (`activePlay` + interaction) | Scale, camera, clusters, peaks — explosion |
+
+#### Architecture
+
+```
+tickVisualEnergy → performanceEnergy (activePlay only)
+        ↓
+tickPerformanceAnimation (PerformanceAnimation.ts)
+  ├→ ADSR envelope (attack/decay/sustain/release from audio + notes)
+  ├→ Camera: zoom, push, orbit, tilt, drift (CSS translate3d / perspective)
+  ├→ Layers: background (slow) · middle (musical) · foreground (reactive)
+  ├→ Clusters: per-cluster translate / scale / rotate / breathe
+  └→ Peak events → AsciiEngine particle bursts
+        ↓
+amplifyBehaviorForPerformance → energyBehavior (ASCII density, jitter, spread)
+        ↓
+AsciiCanvasView camera + composition transforms (GPU will-change)
+```
+
+| Module | Role |
+|--------|------|
+| `PerformanceAnimation.ts` | Performance state tick, CSS transform builder, behavior amplification |
+| `PresetChoreography.ts` | Preset families: plant, mold, space, tape, water |
+| `IdleScenePainters.ts` | Cluster translation offsets during performance |
+| `AsciiEngine.ts` | Peak-event particle choreography (bloom, constellation, corruption, ripple, roll) |
+| `_app-shell.scss` | Performance glow, shimmer, GPU transform layers |
+
+#### Audio → motion mapping
+
+| Band | Visual |
+|------|--------|
+| **Bass** | Scale pulse, camera push, expansion |
+| **Mid** | Rotation, orbit, drift |
+| **Treble** | Shimmer, flicker, foreground motion |
+| **Velocity** | Motion amplitude multiplier |
+| **Sustain** | Envelope hold |
+| **Release** | Smooth decay to ambient (~0.55/s) |
+
+#### Preset choreography families
+
+| Family | Presets | Peak style |
+|--------|---------|------------|
+| **Plant** | seed, moss, roots, bloom, fern, canopy, vine, juno, desert, rainforest, night-bloom | bloom |
+| **Water** | coral | ripple |
+| **Mold** | mycelium, mutation | corruption |
+| **Space** | crystal, winter | constellation |
+| **Tape** | plantasonic | roll |
+
+#### Recovery
+
+When interaction stops, `performanceEnergy` decays exponentially; camera recenters, scale returns, clusters relax — back to sparse ambient within ~4–6s. `idleHome` forces zero performance energy (no idle animation increase).
+
+---
+
+### Milestone 13D — Unified Ambient Audio + Visual Transport — complete
+
+Play awakens Plantasonic — sound and visuals evolve immediately without further input. Stop returns to sparse Home.
+
+#### Three experiential states
+
+| State | Trigger | Audio | Visuals |
+|-------|---------|-------|---------|
+| **Home** | Stop / first load | Silent | `PLANTASONIC` title, one shape concept, ≤5% coverage |
+| **Ambient** | Play | Sustained generative soundscape (`AmbientSoundscape.ts`) | Shape composition evolves — slow breathe, per-glyph motion |
+| **Performance** | MIDI, keyboard, touch, sliders | Layered on ambient | Intensifies existing shape (13F); dramatic transforms (13C); settles to Ambient in ~7s |
+
+#### Transport flow
+
+```
+Play → ambientActive=true → startAmbientPlayback(preset)
+     → playModeEnergy floor (0.44) → activePlay visuals
+     → performance choreography baseline (0.24)
+
+Stop → ambientActive=false → stopAmbientPlayback(fade 4.5s)
+     → playModeEnergy decays to Home (~8s)
+     → transportState: ready (audio context retained)
+```
+
+| Module | Role |
+|--------|------|
+| `AmbientSoundscape.ts` | Preset-routed sustained drones (standard / Plantasonic / Juno) + pink noise bed |
+| `transportActions.ts` | Play/Stop drives audio + `ambientActive` flag (single source of truth) |
+| `VisualMode.ts` | `AMBIENT_PLAY` floor constants, `resolveExperientialMode()` |
+| `VisualEnergy.ts` | Ambient audio sustain channel, lower full-scene threshold (0.12) |
+| `PerformanceAnimation.ts` | Ambient choreography baseline while Play active |
+
+#### Preset load
+
+`loadPresetAtIndex({ silent: true })` — no preview chord on bootstrap or preset change. Ambient layer restarts when preset changes during an active session.
+
+---
+
+### Milestone 13F — Simplified Per-Glyph ASCII System — complete
+
+Fewer glyphs. Stronger shapes. Better motion. One visual concept per preset — no wallpaper.
+
+#### Core principle
+
+Each preset renders **one recognizable shape** (sprout, orbit, ripple, corruption patch, frame edge, etc.) using **3–8 symbols** from a limited palette. Individual glyphs animate inside the shape; the overall form stays readable.
+
+#### Density limits (hard caps)
+
+| Mode | Clusters | Max screen coverage |
+|------|----------|---------------------|
+| **Home** | 3–7 | 5% |
+| **Ambient** | 5–12 | 12% |
+| **Performance** | 12–24 | 25% |
+
+Full-screen wallpaper painters are **disabled** (`shouldRenderFullScene` always false). Legacy dense `BotanicalScenes` painters removed.
+
+#### Shape concepts per preset family
+
+| Family | Shape examples | Symbol palette |
+|--------|----------------|----------------|
+| **Plant** | vertical sprout, branch | `. ' \| / \ Y ,` |
+| **Mold** | corruption patch | `# % ? _ . x` |
+| **Space** | constellation | `. ° * o + ∘` |
+| **Tape** | frame edge | `_ - = ~ : \|` |
+| **Water** | wave line | `~ . ° - o '` |
+| **Signal** | pulse line | `\| · ▪ : - .` |
+
+Theme keys map to a single shape kind (e.g. `coral` → wave line, `plantasonic` → frame edge, `crystal` → constellation).
+
+#### Animation hierarchy (three levels only)
+
+1. **Shape** — slow overall breathing (`sin(time * 0.22)`)
+2. **Cluster** — medium drift from `visualEnergy` + performance cluster offsets (13C)
+3. **Glyph** — fast musical feedback: pulse, jitter mutate, pointer nudge
+
+Performance amplification (13C) boosts **motion and glyph expressiveness**, not density fill.
+
+#### Interaction behavior
+
+Input intensifies the existing shape — never replaces it with chaos:
+
+- Plant: sprout grows branches, glyphs bloom outward
+- Mold: patch expands, letters mutate via jitter
+- Space: constellation drifts, accent stars pulse
+- Tape: frame edge warps via cluster offset
+- Water: ripple wave extends, glyphs widen
+
+`clampShapeVisualEnergy()` caps energy per mode (home 0.12 · ambient 0.55 · performance 0.88).
+
+#### Modules
+
+| Module | Role |
+|--------|------|
+| `ShapeComposition.ts` | Shape generators, density limits, symbol palettes, theme→shape routing |
+| `GlyphAnimation.ts` | Per-glyph pulse/drift/mutate inside shape bounds |
+| `ShapeScenePainters.ts` | Primary scene painter — replaces idle + full-scene wallpaper |
+| `BotanicalScenes.ts` | Thin wrapper → shape scene + slider overlays |
+| `VisualEnergy.ts` | Lower density curve (0.08–0.38), wallpaper disabled |
+| `PerformanceAnimation.ts` | No density boost on performance — motion-only amplification |
 
 ---
 

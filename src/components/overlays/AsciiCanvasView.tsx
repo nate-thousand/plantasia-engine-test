@@ -1,9 +1,14 @@
 import { useAsciiVisualization, type AsciiVisualizationProps } from '../../hooks/useAsciiVisualization';
+import { useDebugMode } from '../../hooks/useDebugMode';
+import { MusicalColorDebugPanel } from '../debug/MusicalColorDebugPanel';
 import { CHAR_ASPECT } from '../../visualization/viewportLayout';
 
 export function AsciiCanvasView(props: AsciiVisualizationProps = {}) {
+  const debugMode = useDebugMode();
   const {
     containerRef,
+    cameraRef,
+    compositionRef,
     preRef,
     accessibility,
     audioActive,
@@ -39,6 +44,7 @@ export function AsciiCanvasView(props: AsciiVisualizationProps = {}) {
       aria-label="Procedural ASCII ecosystem"
       data-reduce-motion={accessibility.reduceMotion ? 'true' : 'false'}
       data-audio-active={audioActive ? 'true' : 'false'}
+      data-performance-mode="ambient"
       onPointerMove={(event) => {
         const grid = mapPointerToGrid(event.clientX, event.clientY);
         if (grid) {
@@ -60,30 +66,36 @@ export function AsciiCanvasView(props: AsciiVisualizationProps = {}) {
           '--ascii-contrast': accessibility.contrast / 100,
           '--ascii-grid-width': displayMetrics.gridWidth,
           '--ascii-grid-height': displayMetrics.gridHeight,
+          '--musical-color': 'var(--plantasia-color-organism)',
+          '--musical-glow-opacity': '0',
+          '--performance-shimmer': '0',
           width: '100%',
           height: '100%',
         } as React.CSSProperties
       }
     >
-      <div
-        className="ascii-canvas-view__scale-wrap"
-        style={{
-          width: contentWidth,
-          height: contentHeight,
-          transform: `scale(${displayMetrics.scale})`,
-        }}
-      >
-        <pre
-          ref={preRef}
-          className="ascii-canvas-view__frame"
+      {debugMode ? <MusicalColorDebugPanel /> : null}
+      <div ref={cameraRef} className="ascii-canvas-view__camera">
+        <div
+          ref={compositionRef}
+          className="ascii-canvas-view__scale-wrap"
           style={{
-            fontSize: `${displayMetrics.fontSizePx}px`,
-            lineHeight: 1,
             width: contentWidth,
             height: contentHeight,
-            margin: 0,
           }}
-        />
+        >
+          <pre
+            ref={preRef}
+            className="ascii-canvas-view__frame"
+            style={{
+              fontSize: `${displayMetrics.fontSizePx}px`,
+              lineHeight: 1,
+              width: contentWidth,
+              height: contentHeight,
+              margin: 0,
+            }}
+          />
+        </div>
       </div>
     </div>
   );

@@ -78,7 +78,6 @@ class StandardLiveVoice {
   private readonly masterVolume: Tone.Volume;
   private readonly lfo: Tone.LFO;
   private readonly heldNotes = new Set<number>();
-  private lfoConnected = false;
   private lastSound: SoundControlValues | null = null;
   private baseEcho = 0.22;
 
@@ -98,6 +97,7 @@ class StandardLiveVoice {
     this.delay.connect(this.reverb);
     this.reverb.connect(this.masterVolume);
     this.masterVolume.toDestination();
+    this.lfo.connect(this.filter.frequency);
     this.lfo.start();
   }
 
@@ -135,7 +135,8 @@ class StandardLiveVoice {
 
     rampParam(this.masterVolume.volume, INTERNAL_MASTER_DB);
     rampParam(this.filter.Q, params.filterQ + moldParams.filterInstability * 0.8);
-    rampParam(this.filter.frequency, params.filterHz);
+    this.lfo.min = Math.max(400, params.filterHz * 0.55);
+    this.lfo.max = Math.min(12000, params.filterHz * 1.35);
     rampParam(this.delay.wet, params.delayWet);
     rampParam(this.reverb.wet, params.reverbWet);
     rampParam(
@@ -165,23 +166,13 @@ class StandardLiveVoice {
     const energyNorm = modulation.energy / 100;
     const mutationNorm = modulation.mutation / 100;
 
-    if (drift > 0.08 && !this.lfoConnected) {
-      this.lfo.connect(this.filter.frequency);
-      this.lfoConnected = true;
-    } else if (drift <= 0.08 && this.lfoConnected) {
-      this.lfo.disconnect();
-      this.lfoConnected = false;
-    }
-
-    if (this.lfoConnected) {
-      rampParam(this.lfo.frequency, 0.05 + drift * 4, 0.15);
-      const baseHz = this.lastSound
-        ? soundSliderToParams(this.lastSound).filterHz
-        : 1800;
-      const pitchSpread = mutationNorm * 400;
-      this.lfo.min = Math.max(400, baseHz * 0.55 - pitchSpread);
-      this.lfo.max = Math.min(12000, baseHz * 1.35 + pitchSpread);
-    }
+    rampParam(this.lfo.frequency, 0.05 + drift * 4, 0.15);
+    const baseHz = this.lastSound
+      ? soundSliderToParams(this.lastSound).filterHz
+      : 1800;
+    const pitchSpread = mutationNorm * 400;
+    this.lfo.min = Math.max(400, baseHz * 0.55 - pitchSpread);
+    this.lfo.max = Math.min(12000, baseHz * 1.35 + pitchSpread);
 
     this.synth.set({
       envelope: {
@@ -295,8 +286,13 @@ class JunoLiveVoiceRouter {
     syncJunoBotanical(this.graph, this.synthState, this.enginePreset);
     setJunoModeActive(true);
 
-    this.graph.liveFilter.frequency.setTargetAtTime(params.filterHz, t, 0.05);
-    this.graph.liveFilter.Q.setTargetAtTime(params.filterQ, t, 0.05);
+    const liveFilter = this.graph.liveFilter;
+    if (liveFilter?.frequency) {
+      liveFilter.frequency.setTargetAtTime(params.filterHz, t, 0.05);
+    }
+    if (liveFilter?.Q) {
+      liveFilter.Q.setTargetAtTime(params.filterQ, t, 0.05);
+    }
   }
 
   syncMold(mold: number): void {

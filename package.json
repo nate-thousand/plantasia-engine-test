@@ -1,7 +1,7 @@
 {
   "name": "plantasia-engine-test",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,8 +9,10 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --noEmit",
     "validate:visual-energy": "node scripts/validate-visual-energy.mjs",
+    "validate:musical-color": "node scripts/validate-musical-color.mjs",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "postinstall": "npx patch-package"
   },
   "dependencies": {
     "bootstrap": "5.0.2",
@@ -25,6 +27,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.3.4",
     "oxlint": "^1.69.0",
+    "patch-package": "^8.0.1",
     "sass": "^1.101.0",
     "typescript": "~5.7.2",
     "vite": "^6.0.3"

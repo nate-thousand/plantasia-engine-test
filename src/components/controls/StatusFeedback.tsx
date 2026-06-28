@@ -21,6 +21,7 @@ function StatusItem({ label, value }: { label: string; value: string | null | un
 export function StatusFeedback({ status }: StatusFeedbackProps) {
   return (
     <div className="status-feedback" aria-label="Live status">
+      <StatusItem label="Transport" value={status.transportState} />
       <StatusItem label="Audio" value={status.audioIndicator} />
       <StatusItem label="State" value={status.organismStateLabel} />
       <StatusItem label="Preset" value={status.presetName} />

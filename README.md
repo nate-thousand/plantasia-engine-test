@@ -1,5 +1,7 @@
 # Plantasia Engine Test
 
+**Version: v1.2** · see [`VERSION`](./VERSION)
+
 Playground application for experimenting with [plantasia-sound-engine](https://github.com/nate-thousand/plantasia-sound-engine). Fullscreen visual instrument with keyboard and MIDI input.
 
 This repository is **not** the sound engine. Synthesis, presets, and Tone.js graph logic live in the separate `plantasia-sound-engine` package and are consumed here as a dependency.
@@ -36,6 +38,7 @@ plantasia-engine-test/
 │   ├── input/              KeyboardInput, MidiInput, MidiRouter, noteMap
 │   ├── layouts/            InstrumentShell
 │   ├── stores/             engineStore, controlStore, midiStore
+│   ├── transport/          Unified playback controller (13B)
 │   ├── types/              Instrument types
 │   └── visuals/organism/   Procedural ASCII organism
 ├── ROADMAP.md
@@ -86,14 +89,23 @@ npm run preview     # Serve production build locally
 
 ## Playing the Instrument
 
-1. Click **Start Audio** (required user gesture for Web Audio and MIDI)
-2. **Computer keyboard:** A–K row maps to C4–C5 (see [TESTING.md](./TESTING.md))
-3. **MIDI:** Click **Connect**, select your device (e.g. Akai MPK Mini)
+1. Press **▶ Play** on the transport bar (or **Space**) — unlocks Web Audio, loads the default preset, and plays
+2. Press **■ Stop** (or **Space** again) to release notes and return to ambient idle
+3. **Computer keyboard:** A–K row maps to C4–C5; Z/X shift octave (see [TESTING.md](./TESTING.md))
+4. **MIDI:** Open **menu** → Connect MIDI, select your device (e.g. Akai MPK Mini)
    - Keys trigger notes with velocity → sound + ASCII visuals
    - Knobs send CC messages → sliders update (mold, tone, texture, bloom, growth, drift, mutation, energy)
-   - Pads trigger transport/preset actions (default map for MPK Mini)
+   - Pads trigger the same transport actions as the UI (play, stop, hold, preset prev/next)
    - **Learn** mode: click Learn → select a control → move a knob to assign
-4. Use preset selector and sliders as secondary controls (also MIDI-mappable)
+5. Change presets from the transport bar selector; open **menu** for sound, MIDI, keyboard, and viz settings
+
+### Transport shortcuts
+
+| Input | Action |
+|-------|--------|
+| **Space** | Toggle play / stop (starts audio from idle) |
+| **MIDI play pad** | Same as ▶ Play |
+| **MIDI stop pad / CC 123** | Same as ■ Stop |
 
 ### Default MIDI CC Map
 

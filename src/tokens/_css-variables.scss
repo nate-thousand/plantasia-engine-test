@@ -17,16 +17,27 @@
   --plantasia-color-text-secondary: #8b9f8c;
 
   /* Color — semantic */
-  --plantasia-color-primary: #7fd88f;
-  --plantasia-color-accent: #80d8c3;
-  --plantasia-color-organism: #7fd88f;
+  --plantasia-color-primary: #48e870;
+  --plantasia-color-accent: #48e8c8;
+  --plantasia-color-organism: #48e870;
 
   /* Typography */
   --plantasia-font-sans: system-ui, sans-serif;
   --plantasia-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  /* Spacing */
+  /* Spacing scale */
   --plantasia-space-unit: 1rem;
+  --plantasia-space-xs: 0.25rem;
+  --plantasia-space-sm: 0.375rem;
+  --plantasia-space-md: 0.625rem;
+  --plantasia-space-lg: 1rem;
+
+  /* Typography scale — mono UI */
+  --plantasia-font-size-xs: 0.5625rem;
+  --plantasia-font-size-sm: 0.625rem;
+  --plantasia-font-size-md: 0.75rem;
+  --plantasia-letter-spacing-wide: 0.14em;
+  --plantasia-letter-spacing-ui: 0.06em;
 
   /* Radius */
   --plantasia-radius-sm: 0.125rem;
@@ -37,4 +48,11 @@
   --plantasia-duration-fast: 120ms;
   --plantasia-duration-normal: 240ms;
   --plantasia-duration-slow: 480ms;
+  --plantasia-duration-scene: 1400ms;
+  --plantasia-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --plantasia-ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+
+  /* Interactive surfaces */
+  --plantasia-color-primary-muted: color-mix(in srgb, var(--plantasia-color-primary) 10%, transparent);
+  --plantasia-color-primary-soft: color-mix(in srgb, var(--plantasia-color-primary) 14%, transparent);
 }

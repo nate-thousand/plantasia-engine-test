@@ -1,0 +1,12 @@
+v1.2
+
+Release save point — plantasia-engine-test
+Date: 2026-06-28
+
+Includes:
+- Milestone 13C — expressive performance animation (interaction-only)
+- Milestone 13D — unified ambient audio + visual transport
+- Milestone 13F — simplified per-glyph ASCII shape system
+- Tone.js mold/LFO patch for plantasia-sound-engine (patch-package)
+
+Semantic version: 1.2.0

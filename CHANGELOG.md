@@ -6,42 +6,57 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Added — Sound Worlds milestone
+## [1.2.0] — v1.2 — 2026-06-28
 
-- **Sound World schema** in engine: `visual`, `midi`, `tags`, expanded `controls` on every preset JSON.
-- **`getPresetControls()`** engine API — intentional macro defaults per world.
-- **9 Sound Worlds** with distinct metadata: Moss, Roots, Bloom, Canopy, Rainforest, Desert, Winter, Night Bloom (+ Plantasonic signature, Mycelium, Mutation).
-- **Metadata-first ASCII themes** — `visual.asciiTheme` drives template + scene selection.
-- **ThemeReactiveBehavior** — per-world audio-reactive plant growth (bloom on treble, roots on bass, etc.).
-- **Per-preset MIDI defaults** — mod wheel, expression, program change slot on preset load.
-- **PRESETS.md** — Sound World system documentation and extension guide.
+Shape-based ASCII, ambient transport, performance animation, and audio stability.
 
-### Added — System audit pass — preset switching now synchronizes sound, all UI sliders, engine state, and ASCII themes together.
-- **Plantasonic live voice** — keyboard/MIDI notes route through the Plantasonic flagship graph (matching chord preview).
-- **Preset-derived controls** — tone, texture, bloom, growth, drift, mutation, energy, and mold load from each preset's synth block on switch.
-- **Keyboard octave** — Z/X shift playable range ±2 octaves; Keyboard panel in control dock.
-- **MIDI detected CC display** — last six CC messages shown in MIDI panel during performance.
-- Engine exports: `presetManifest`, `getPresetById`, `getPresetsByCategory`, Plantasonic live-voice API.
+### Added
 
-### Fixed
-
-- Preset change stops held notes and clears `engineStore.activeNotes` (no stale state).
-- Mold slider syncs to engine immediately on preset load (was UI-only).
-- UI sound slider changes use full `applyControlSurface` path (same as MIDI).
-- `linearRampTo` crash on LFO min/max during Mold application (engine).
-- Plantasonic preview vs live keyboard mismatch.
-- Legacy `volume` MIDI learn mappings migrate to `mold` on storage load.
-- Duplicate ASCII tick on window resize (performance).
-- Removed unused organism render pipeline from hot path (CPU savings).
+- **Milestone 13C** — performance animation (ADSR, camera/layer/cluster motion, preset choreography)
+- **Milestone 13D** — ambient soundscape on Play; Home / Ambient / Performance experiential states
+- **Milestone 13F** — one shape per preset, per-glyph animation, hard density caps (no wallpaper)
+- `ShapeComposition.ts`, `GlyphAnimation.ts`, `ShapeScenePainters.ts`, `VisualMode.ts`
+- `AmbientSoundscape.ts` — preset-routed sustained ambient layer
+- `patches/plantasia-sound-engine+0.2.0.patch` — Tone.js LFO/mold compatibility fixes
+- `vercel.json` — Vite static deploy config
 
 ### Changed
 
-- **Mold** slider replaces Volume on the creative control surface — organic decay macro wired to engine `controls.mold`.
-- Vine and Juno Flowers ASCII themes differentiated (drape vs meadow grid).
-- Status strip shows preset category and description.
-- Engine manifest `defaultPresetId` consumed from bundled `default.json`.
-- Removed user-facing volume control; loudness is OS / browser controlled.
-- Energy modulation slider drives synthesis expressiveness instead of output gain.
+- Unified transport drives audio + `ambientActive` + visuals (Play awakens sound immediately)
+- Performance boost affects motion/glyphs only — not density fill
+- `postinstall` uses `npx patch-package` for reliable patch application
+- Legacy full-screen ASCII wallpaper painters removed
+
+### Fixed
+
+- `Cannot read properties of undefined (reading 'frequency')` — stale mold `wowLfo`/`flutterLfo` refs
+- Corrupted patch file breaking `npm install`
+- Live voice filter control aligned with LFO min/max pattern (no conflicting scalar ramps)
+
+## [1.1.0] — v1.1 — 2026-06-27
+
+Save-point release. Visual instrument polish + unified transport.
+
+### Added
+
+- **Scriabin musical color system** (12D) — note/key/Camelot palette, smooth color transitions, debug panel
+- **Sparse idle home** — almost-empty load screen; `idleHome` vs `activePlay` render modes
+- **Visual polish** — distinct preset idle/full scenes, per-theme transitions, unified design tokens
+- **Unified playback transport** (13B) — `src/transport/` single controller; `UnifiedTransport` UI
+- **Spacebar** play/stop shortcut
+- Root **`VERSION`** save file
+
+### Changed
+
+- Full color saturation on ASCII canvas and UI accents
+- Preset selector moved to transport bar; settings in menu drawer
+- Removed legacy `TransportControls` / duplicate play state (`manualVisual`)
+
+### Fixed
+
+- Blank screen (`PITCH_CLASSES` init order in color theory)
+- Idle theme routing (`resolveThemeTemplateKeyFromTheme`)
+- MIDI note-off respects transport hold flag
 
 ## [0.1.0] — 2026-06-27
 
@@ -50,15 +65,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Initial project foundation with Vite, React, TypeScript, and ES Modules
 - Bootstrap 5.0.2 installed and configured via SCSS
 - CSS custom property theme structure in `src/tokens/`
-- Complete source folder architecture (`app`, `audio`, `ascii`, `visuals`, `canvas`, `components`, `layouts`, `hooks`, `stores`, `systems`, `tokens`, `styles`, `utils`)
-- Audio layer placeholder documentation (`engine`, `presets`, `midi`, `sequencing`, `visualization`)
+- Complete source folder architecture
 - Local file dependency on `plantasia-sound-engine`
 - Project documentation: `README.md`, `ARCHITECTURE.md`, `ROADMAP.md`, `TESTING.md`
-- Brand documentation: `docs/brand/ASCII_GRAMMAR.md`
-- Docs scaffold: `docs/architecture/`, `docs/design/`, `docs/engineering/`
-- `assets/` directory for future static media
+- **Sound World schema** — `visual`, `midi`, `tags`, expanded `controls` on every preset JSON
+- **9 Sound Worlds** with distinct metadata and metadata-first ASCII themes
+- **ThemeReactiveBehavior** — per-world audio-reactive plant growth
+- **Plantasonic live voice** — keyboard/MIDI through flagship graph
+- **MIDI Learn** — mapping save/restore via `MidiStorage`
+- **PRESETS.md** — Sound World system documentation
+
+### Fixed
+
+- Preset change stops held notes and clears stale `engineStore` state
+- Mold slider syncs to engine on preset load
+- Plantasonic preview vs live keyboard mismatch
+- Duplicate ASCII tick on window resize
+
+### Changed
+
+- **Mold** slider replaces Volume on the creative control surface
+- Energy modulation drives synthesis expressiveness instead of output gain
 
 ### Notes
 
-- No application features, UI components, visuals, or synth logic included
 - Sound engine remains a separate repository and is not modified by this project

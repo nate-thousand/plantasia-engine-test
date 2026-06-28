@@ -6,6 +6,13 @@ body,
   overflow: hidden;
 }
 
+#plantasia-app {
+  transition:
+    --plantasia-color-primary 1.4s var(--plantasia-ease-in-out),
+    --plantasia-color-organism 1.4s var(--plantasia-ease-in-out),
+    --plantasia-color-accent 1.4s var(--plantasia-ease-in-out);
+}
+
 .instrument-shell {
   background-color: var(--plantasia-color-background);
   color: var(--plantasia-color-text-primary);
@@ -28,46 +35,145 @@ body,
 
 .organism-view,
 .ascii-canvas-view {
+  --musical-color: var(--plantasia-color-organism);
+  --musical-glow-opacity: 0;
+  --performance-shimmer: 0;
   align-items: center;
   display: flex;
   height: 100%;
   justify-content: center;
   overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.ascii-canvas-view__camera {
+  align-items: center;
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  transform-origin: center center;
+  transition: transform 80ms linear;
+  will-change: transform;
   width: 100%;
 }
 
 .ascii-canvas-view__scale-wrap {
   flex: none;
   transform-origin: center center;
+  transition: transform 60ms linear;
   will-change: transform;
+}
+
+.ascii-canvas-view--live .ascii-canvas-view__camera,
+.ascii-canvas-view--live .ascii-canvas-view__scale-wrap {
+  transition: none;
+}
+
+.ascii-canvas-view[data-performance-mode='ambient'] .ascii-canvas-view__frame {
+  text-shadow:
+    0 0 calc(8px * var(--musical-glow-opacity, 0))
+      rgba(var(--musical-color-r, 72), var(--musical-color-g, 232), var(--musical-color-b, 112), calc(var(--musical-glow-opacity, 0) * 0.35));
+}
+
+.ascii-canvas-view[data-performance-mode='performance'] .ascii-canvas-view__frame {
+  text-shadow:
+    0 0 calc(14px * (0.35 + var(--performance-shimmer, 0)))
+      rgba(var(--musical-color-r, 72), var(--musical-color-g, 232), var(--musical-color-b, 112), calc(0.4 + var(--musical-glow-opacity, 0) * 0.5)),
+    0 0 calc(28px * var(--musical-glow-opacity, 0))
+      rgba(var(--musical-color-r, 72), var(--musical-color-g, 232), var(--musical-color-b, 112), calc(var(--musical-glow-opacity, 0) * 0.55));
+}
+
+.ascii-canvas-view[data-performance-mode='performance'] .ascii-canvas-view__camera {
+  filter: saturate(calc(1 + var(--performance-shimmer, 0) * 0.25));
 }
 
 .organism-view__ascii,
 .ascii-canvas-view__frame {
   box-sizing: border-box;
-  color: var(--plantasia-color-organism);
+  color: var(--musical-color, var(--plantasia-color-organism));
   display: block;
   flex: none;
   font-family: var(--plantasia-font-mono);
   height: 100%;
   letter-spacing: 0;
   margin: 0;
-  opacity: calc(0.72 + var(--ascii-contrast, 0.7) * 0.28);
+  opacity: 1;
   overflow: hidden;
   padding: 0;
   text-align: left;
+  transition:
+    color var(--plantasia-duration-scene) var(--plantasia-ease-in-out),
+    text-shadow var(--plantasia-duration-normal) var(--plantasia-ease-in-out);
   white-space: pre;
   width: 100%;
-  will-change: contents;
+  will-change: contents, color, text-shadow;
 }
 
 .ascii-canvas-view[data-audio-active='true'] .ascii-canvas-view__frame {
-  opacity: calc(0.75 + var(--ascii-contrast, 0.7) * 0.25);
-  text-shadow: 0 0 calc(8px * var(--ascii-contrast, 0.7)) rgba(140, 200, 140, 0.35);
+  text-shadow:
+    0 0 calc(10px * var(--ascii-contrast, 0.7))
+      rgba(var(--musical-color-r, 127), var(--musical-color-g, 216), var(--musical-color-b, 143), calc(0.35 + var(--musical-glow-opacity, 0) * 0.55)),
+    0 0 calc(22px * var(--musical-glow-opacity, 0))
+      rgba(var(--musical-color-r, 127), var(--musical-color-g, 216), var(--musical-color-b, 143), calc(var(--musical-glow-opacity, 0) * 0.5));
 }
 
 .ascii-canvas-view--live .ascii-canvas-view__frame {
-  transition: opacity 0.05s linear;
+  transition:
+    color var(--plantasia-duration-scene) var(--plantasia-ease-in-out),
+    text-shadow var(--plantasia-duration-normal) var(--plantasia-ease-in-out);
+}
+
+.musical-color-debug {
+  backdrop-filter: blur(6px);
+  background: rgba(8, 16, 9, 0.82);
+  border: 1px solid rgba(127, 216, 143, 0.25);
+  border-radius: 6px;
+  bottom: 12px;
+  color: var(--plantasia-color-text-primary);
+  font-family: var(--plantasia-font-mono);
+  font-size: 11px;
+  left: 12px;
+  line-height: 1.35;
+  max-width: min(320px, calc(100% - 24px));
+  padding: 10px 12px;
+  pointer-events: none;
+  position: absolute;
+  z-index: 20;
+}
+
+.musical-color-debug__title {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  opacity: 0.75;
+  text-transform: uppercase;
+}
+
+.musical-color-debug__grid {
+  display: grid;
+  gap: 4px 12px;
+  grid-template-columns: 1fr 1fr;
+  margin: 0;
+}
+
+.musical-color-debug__grid dt {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  margin: 0;
+  opacity: 0.6;
+  text-transform: uppercase;
+}
+
+.musical-color-debug__grid dd {
+  margin: 0 0 4px;
+}
+
+.musical-color-debug__swatch {
+  border-radius: 4px;
+  height: 8px;
+  margin-top: 8px;
+  width: 100%;
 }
 
 @media (max-width: 768px) {

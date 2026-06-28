@@ -1,0 +1,124 @@
+diff --git a/node_modules/plantasia-sound-engine/dist/engine/audioEngine.js b/node_modules/plantasia-sound-engine/dist/engine/audioEngine.js
+index f546f72..e84a26f 100644
+--- a/node_modules/plantasia-sound-engine/dist/engine/audioEngine.js
++++ b/node_modules/plantasia-sound-engine/dist/engine/audioEngine.js
+@@ -92,8 +92,11 @@ function applySettings(settings) {
+         oscillator: buildOscillatorSettings(settings),
+         envelope: { attack: settings.envelope.attack, release: settings.envelope.release },
+     });
+-    setRampParam(started, engine.filter.frequency, settings.filterHz);
+     setRampParam(started, engine.filter.Q, settings.filterQ ?? 1);
++    const hfCap = settings.hfRolloff ?? 8000;
++    const hz = settings.filterHz;
++    engine.lfo.min = Math.max(400, hz * 0.65);
++    engine.lfo.max = Math.min(hfCap, hz * 1.35);
+     setRampParam(started, engine.delay.wet, settings.effects.delay);
+     if (settings.effects.echo != null) {
+         setRampParam(started, engine.delay.feedback, settings.effects.echo);
+@@ -169,7 +172,9 @@ export function stopAudio() {
+ export function applyBotanicalControls(controls) {
+     const engine = ensureNodes();
+     const brightness = 600 + (controls.texture / 100) * 6000;
+-    setRampParam(started, engine.filter.frequency, brightness, 0.15);
++    const hfCap = lastSettings?.hfRolloff ?? 8000;
++    engine.lfo.min = Math.max(400, brightness * 0.65);
++    engine.lfo.max = Math.min(hfCap, brightness * 1.35);
+     setRampParam(started, engine.filter.Q, 0.5 + (controls.resonance / 100) * 12, 0.15);
+     setRampParam(started, engine.delay.wet, (controls.space / 100) * 0.6);
+     setRampParam(started, engine.reverb.wet, (controls.space / 100) * 0.7);
+diff --git a/node_modules/plantasia-sound-engine/dist/mold/applyMold.js b/node_modules/plantasia-sound-engine/dist/mold/applyMold.js
+index ce8190d..4a3296b 100644
+--- a/node_modules/plantasia-sound-engine/dist/mold/applyMold.js
++++ b/node_modules/plantasia-sound-engine/dist/mold/applyMold.js
+@@ -1,6 +1,12 @@
+ import * as Tone from 'tone';
+ import { resolveMoldParameters } from './moldMacro.js';
+ import { setRampParam } from '../utils/ramp.js';
++/** Tone.js rejects LFO output when min === max (float leak ~1e-7). */
++const LFO_MIN_SPAN = 1e-6;
++function lfoBipolarSpan(depth) {
++    const span = Math.max(Math.abs(depth), LFO_MIN_SPAN);
++    return { min: -span, max: span };
++}
+ /** Create the modular degradation processor chain. */
+ export function createMoldNodes() {
+     const tapeSaturation = new Tone.Distortion({ distortion: 0, wet: 0 });
+@@ -10,16 +16,10 @@ export function createMoldNodes() {
+     const ringMod = new Tone.Vibrato({ frequency: 0.2, depth: 0, wet: 0 });
+     const textureCrackle = new Tone.Noise({ type: 'brown', volume: -Infinity });
+     const textureGain = new Tone.Gain(0);
+-    const wowLfo = new Tone.LFO({ frequency: 0.08, min: 0, max: 0, type: 'sine' });
+-    const flutterLfo = new Tone.LFO({ frequency: 4.2, min: 0, max: 0, type: 'sine' });
+-    const filterQLfo = new Tone.LFO({ frequency: 0.35, min: 0, max: 0, type: 'triangle' });
+     const panLfo = new Tone.LFO({ frequency: 0.05, min: -0.35, max: 0.35, type: 'sine' });
+     const stereoPanner = new Tone.Panner(0);
+     textureCrackle.connect(textureGain);
+     textureCrackle.start();
+-    wowLfo.start();
+-    flutterLfo.start();
+-    filterQLfo.start();
+     panLfo.start();
+     panLfo.connect(stereoPanner.pan);
+     return {
+@@ -30,9 +30,6 @@ export function createMoldNodes() {
+         ringMod,
+         textureCrackle,
+         textureGain,
+-        wowLfo,
+-        flutterLfo,
+-        filterQLfo,
+         panLfo,
+         stereoPanner,
+     };
+@@ -50,10 +47,9 @@ export function wireMoldChain(filter, delay, moldNodes) {
+     moldNodes.microDelay.connect(moldNodes.stereoPanner);
+     moldNodes.stereoPanner.connect(delay);
+     moldNodes.textureGain.connect(moldNodes.harmonicDistortion);
+-    moldNodes.wowLfo.connect(delay.delayTime);
+-    moldNodes.flutterLfo.connect(delay.delayTime);
+-    moldNodes.filterQLfo.connect(filter.Q);
+-    moldNodes.ringMod.connect(moldNodes.bitCrusher.wet);
++    // Do NOT connect mold LFOs to AudioParams also driven by setRampParam —
++    // Tone.js connectSignal() marks targets overridden (range [0,0]) and throws on scalar ramps.
++    moldNodes.panLfo.connect(moldNodes.stereoPanner.pan);
+ }
+ let lastMoldValue = 0;
+ export function getMoldValue() {
+@@ -67,7 +63,7 @@ export function applyMold(host, mold) {
+ }
+ /** Drive all degradation modules from resolved macro parameters. */
+ export function applyMoldParams(host, params) {
+-    const { delay, lfo, started, moldNodes } = host;
++    const { delay, filter, lfo, started, moldNodes } = host;
+     const t = params.intensity;
+     // Tone.Distortion.distortion is a plain number, not a rampable Param.
+     moldNodes.tapeSaturation.distortion = 0.08 + params.saturation * 0.42;
+@@ -83,23 +79,17 @@ export function applyMoldParams(host, params) {
+     setRampParam(started, moldNodes.ringMod.depth, params.ringMod * 0.08);
+     setRampParam(started, moldNodes.ringMod.frequency, 0.15 + params.ringMod * 2.5);
+     setRampParam(started, moldNodes.ringMod.wet, params.ringMod * 0.25);
+-    moldNodes.wowLfo.min = -params.wowDepth;
+-    moldNodes.wowLfo.max = params.wowDepth;
+-    moldNodes.wowLfo.frequency.value = 0.05 + params.wowDepth * 5;
+-    moldNodes.flutterLfo.min = -params.flutterDepth;
+-    moldNodes.flutterLfo.max = params.flutterDepth;
+-    moldNodes.flutterLfo.frequency.value = 2.8 + params.flutterDepth * 120;
+-    const feedback = Math.min(0.9, 0.2 + params.delayFeedbackBoost + params.selfOscDelay * 0.35);
++    const feedback = Math.min(0.9, 0.2 + params.delayFeedbackBoost + params.selfOscDelay * 0.35 + params.wowDepth * 0.08);
+     setRampParam(started, delay.feedback, feedback);
+     setRampParam(started, delay.wet, 0.12 + params.delayBloom * 0.35);
+-    moldNodes.filterQLfo.min = -params.filterInstability * 0.04;
+-    moldNodes.filterQLfo.max = params.filterInstability * 0.04;
++    setRampParam(started, filter.Q, Math.max(0.35, 0.75 + params.filterInstability * 0.65));
+     setRampParam(started, lfo.frequency, 0.04 + params.modulationDepth * 4.5);
+     lfo.min = 400 - params.pitchDriftCents * 7;
+     lfo.max = 2400 + params.pitchDriftCents * 11;
+     moldNodes.panLfo.frequency.value = 0.04 + params.stereoInstability * 0.18;
+-    moldNodes.panLfo.min = -params.stereoInstability * 0.55;
+-    moldNodes.panLfo.max = params.stereoInstability * 0.55;
++    const pan = lfoBipolarSpan(params.stereoInstability * 0.55);
++    moldNodes.panLfo.min = pan.min;
++    moldNodes.panLfo.max = pan.max;
+     const textureLevel = params.textureCrackle + params.textureAir + params.crackle * 0.5;
+     setRampParam(started, moldNodes.textureGain.gain, textureLevel * 0.045);
+     moldNodes.textureCrackle.volume.value =

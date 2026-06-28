@@ -1,20 +1,19 @@
-import { useState } from 'react';
 import { KeyboardControls } from './KeyboardControls';
 import { MidiControls } from './MidiControls';
 import { ModulationControls } from './ModulationControls';
 import { PresetControls } from './PresetControls';
 import { SoundControls } from './SoundControls';
 import { StatusFeedback } from './StatusFeedback';
-import { TransportControls } from './TransportControls';
 import { VizControls } from './VizControls';
 import type { UseInstrumentReturn } from '../../hooks/useInstrument';
 
 type ControlDockProps = {
   instrument: UseInstrumentReturn;
+  menuOpen: boolean;
 };
 
-export function ControlDock({ instrument }: ControlDockProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
+/** Settings drawer — sound, MIDI, keyboard, viz. Playback lives in UnifiedTransport. */
+export function ControlDock({ instrument, menuOpen }: ControlDockProps) {
   const audioReady = instrument.transport.audioReady;
 
   return (
@@ -28,17 +27,11 @@ export function ControlDock({ instrument }: ControlDockProps) {
         aria-hidden={menuOpen ? 'false' : 'true'}
       >
         <div className="control-dock">
-          <TransportControls transport={instrument.transport} midi={instrument.midi} />
-
           <div className="control-dock__main">
             <StatusFeedback status={instrument.status} />
 
             <div className="control-dock__grid">
-              <PresetControls
-                presets={instrument.presets}
-                midi={instrument.midi}
-                audioReady={audioReady}
-              />
+              <PresetControls presets={instrument.presets} midi={instrument.midi} audioReady={audioReady} />
               <MidiControls midi={instrument.midi} audioReady={audioReady} />
               <KeyboardControls keyboard={instrument.keyboard} audioReady={audioReady} />
               <SoundControls
@@ -56,16 +49,6 @@ export function ControlDock({ instrument }: ControlDockProps) {
           </div>
         </div>
       </div>
-
-      <button
-        type="button"
-        className="menu-toggle"
-        aria-expanded={menuOpen}
-        aria-controls="control-dock-panel"
-        onClick={() => setMenuOpen((open) => !open)}
-      >
-        menu
-      </button>
     </div>
   );
 }

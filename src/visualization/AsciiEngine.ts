@@ -32,10 +32,11 @@ import {
   updatePlant,
 } from './PlantGenerator';
 import { findPresetById } from '../presets/engineRegistry';
-import { fallbackTheme, resolvePresetTheme } from './PresetThemes';
+import { fallbackTheme } from './PresetThemes';
 import { buildSoundVizParams } from './SoundMapping';
 import { ThemeTransition } from './ThemeTransition';
 import { densityFromVisualEnergy } from './VisualEnergy';
+import { IDLE_HOME } from './VisualMode';
 import { FEEDBACK_GAIN, maxParticleCount } from './VisualFeedback';
 import type {
   PlantInstance,
@@ -43,6 +44,8 @@ import type {
   SoundVizParams,
   VizAccessibility,
   VizInputSnapshot,
+  AsciiFrameOutput,
+  MusicalColorFrame,
 } from './types';
 
 export type AsciiEngineOptions = {
@@ -106,7 +109,7 @@ export class AsciiEngine {
     return { width: this.renderer.width, height: this.renderer.height };
   }
 
-  tick(snapshot: VizInputSnapshot, deltaMs: number): string {
+  tick(snapshot: VizInputSnapshot, deltaMs: number): AsciiFrameOutput {
     const dt = this.accessibility.reduceMotion
       ? Math.min(deltaMs / 1000, 1 / 24) * (this.accessibility.animationSpeed / 100)
       : Math.min(deltaMs / 1000, 1 / 24) * (this.accessibility.animationSpeed / 62);
@@ -626,18 +629,28 @@ export class AsciiEngine {
           height,
         );
       }
+
+      const peak = snapshot.performance?.peakEvent;
+      if (peak && peak.age < 0.12 && peak.intensity > 0.5) {
+        this.spawnPerformancePeak(peak.kind, peak.intensity, width, height, theme);
+      }
     } else {
-      const { visualEnergy } = snapshot.energy;
-      const asciiScale = densityFromVisualEnergy(visualEnergy);
+      const { displayEnergy } = snapshot.energy;
+      const { renderMode } = snapshot;
+      const asciiScale = densityFromVisualEnergy(displayEnergy);
       const { rareEventRate } = snapshot.energyBehavior;
-      if (visualEnergy > 0.06 && Math.random() < (0.04 + rareEventRate * 0.08) * asciiScale * theme.density) {
+      if (
+        renderMode === 'activePlay' &&
+        displayEnergy > 0.12 &&
+        Math.random() < (0.04 + rareEventRate * 0.08) * asciiScale * theme.density
+      ) {
         const px = snapshot.pointer.active
           ? snapshot.pointer.gridX
           : Math.round(Math.random() * width);
         const py = snapshot.pointer.active
           ? snapshot.pointer.gridY
           : Math.round(Math.random() * height);
-        this.particles.spawnSpores(px, py, 1, theme, Math.round(visualEnergy * 80));
+        this.particles.spawnSpores(px, py, 1, theme, Math.round(displayEnergy * 80));
       }
     }
 
@@ -658,60 +671,81 @@ export class AsciiEngine {
     snapshot: VizInputSnapshot,
     theme: PresetTheme,
     sliders: SliderVizState,
-  ): string {
-    const { audio, time } = snapshot;
+  ): AsciiFrameOutput {
+    const { audio, time, musicalColor } = snapshot;
+    this.renderer.setMusicalFrame(musicalColor.weight > 0.02 ? musicalColor : null);
     this.renderer.clear();
 
-    const sceneTheme = snapshot.activePreset
-      ? resolvePresetTheme(snapshot.activePreset, snapshot.category)
-      : resolvePresetTheme(snapshot.presetId, snapshot.presetName);
-    const sceneBoost = sliderSceneIntensity(sliders);
+    const sceneTheme = theme;
+    const sceneBoost = sliderSceneIntensity(sliders, snapshot.renderMode);
     const interactionPulse = Math.max(snapshot.interactionBoost, this.titlePulse);
     const { energy, energyBehavior } = snapshot;
-    const visualEnergy = energy.visualEnergy;
+    const visualEnergy = energy.displayEnergy;
+    const renderMode = snapshot.renderMode;
     const asciiScale = energyBehavior.density;
     const motionScale = energyBehavior.speed;
-    const energyLevel = sceneBoost.energy * asciiScale;
-    const amplitude = this.dormant
-      ? 0.04 + sliders.mold * 0.08 * asciiScale
-      : (sceneBoost.amplitude + snapshot.audio.amplitude * 0.45) * asciiScale * energyBehavior.brightness;
+    const energyLevel =
+      renderMode === 'idleHome'
+        ? IDLE_HOME.sceneEnergy
+        : sceneBoost.energy * asciiScale;
+    const amplitude =
+      renderMode === 'idleHome'
+        ? IDLE_HOME.amplitude
+        : this.dormant
+          ? 0.04 + sliders.mold * 0.08 * asciiScale
+          : (sceneBoost.amplitude + snapshot.audio.amplitude * 0.45) *
+            asciiScale *
+            energyBehavior.brightness;
 
     this.renderer.paintBotanicalScene(
       sceneTheme,
-      this.elapsed * sceneBoost.animSpeed * motionScale,
+      this.elapsed * (renderMode === 'idleHome' ? IDLE_HOME.animSpeed : sceneBoost.animSpeed * motionScale),
       energyLevel,
       amplitude,
-      sceneBoost.animSpeed * motionScale,
+      renderMode === 'idleHome' ? IDLE_HOME.animSpeed : sceneBoost.animSpeed * motionScale,
       sliders,
       interactionPulse,
       visualEnergy,
       snapshot.pointer,
       energyBehavior,
+      renderMode,
+      snapshot.performance,
+      snapshot.ambientActive,
+      snapshot.energy.playModeEnergy,
     );
 
-    if (interactionPulse > 3) {
-      this.renderer.paintInteractionOverlays(sceneTheme, time, interactionPulse, energyBehavior);
+    const perfEnergy = snapshot.performance.performanceEnergy;
+    if (renderMode === 'activePlay' && (interactionPulse > 3 || perfEnergy > 0.12)) {
+      this.renderer.paintInteractionOverlays(
+        sceneTheme,
+        time,
+        interactionPulse,
+        energyBehavior,
+        visualEnergy,
+      );
     }
 
-    if (snapshot.presetTransition > 0.05 || energy.sources.preset.current > 0.08) {
+    const transitionProgress = Math.max(snapshot.presetTransition, energy.sources.preset.current);
+    if (transitionProgress > 0.05) {
       this.renderer.paintPresetTransition(
         sceneTheme,
         time,
-        Math.max(snapshot.presetTransition, energy.sources.preset.current),
+        transitionProgress,
         energyBehavior,
+        renderMode === 'idleHome',
       );
     }
 
     const groundY = this.renderer.height - 2;
 
     if (this.dormant) {
-      if (visualEnergy > 0.04) {
+      if (renderMode === 'activePlay' && visualEnergy > 0.22) {
         this.renderer.paintParticles(
           this.particles.list(),
-          6 + Math.round(visualEnergy * 10 * energyBehavior.spread + interactionPulse / 12),
+          2 + Math.round(visualEnergy * 4 * energyBehavior.spread),
         );
       }
-      return this.renderer.toString();
+      return this.buildFrameOutput(musicalColor, sceneTheme.colorHint);
     }
 
     this.renderer.paintBassPulse(sliderBassStrength(sliders, audio.bass), groundY, sceneTheme);
@@ -762,7 +796,77 @@ export class AsciiEngine {
       ),
     );
 
-    return this.renderer.toString();
+    return this.buildFrameOutput(musicalColor, sceneTheme.colorHint);
+  }
+
+  private spawnPerformancePeak(
+    kind: string,
+    intensity: number,
+    width: number,
+    height: number,
+    theme: PresetTheme,
+  ): void {
+    const cx = Math.round(width / 2);
+    const cy = Math.round(height / 2);
+    const burst = Math.round(4 + intensity * 14);
+
+    switch (kind) {
+      case 'bloom':
+      case 'ripple':
+        for (let i = 0; i < burst; i += 1) {
+          const angle = (i / burst) * Math.PI * 2;
+          const r = Math.round(2 + intensity * 8);
+          this.particles.spawnSpores(
+            cx + Math.round(Math.cos(angle) * r),
+            cy + Math.round(Math.sin(angle) * r * 0.65),
+            2,
+            theme,
+            Math.round(intensity * 127),
+          );
+        }
+        break;
+      case 'constellation':
+        for (let i = 0; i < burst; i += 1) {
+          this.particles.spawnSpores(
+            Math.round(Math.random() * width),
+            Math.round(Math.random() * height * 0.6),
+            1,
+            theme,
+            100,
+          );
+        }
+        break;
+      case 'corruption':
+        for (let i = 0; i < burst; i += 1) {
+          this.particles.spawnDistortionArtifacts(
+            Math.round(Math.random() * width),
+            Math.round(Math.random() * height),
+            this.sound,
+            theme,
+          );
+        }
+        break;
+      case 'roll':
+        for (let x = 0; x < width; x += 2) {
+          this.particles.spawnSpores(x, cy + Math.round(Math.sin(x * 0.2) * 3), 1, theme, 80);
+        }
+        break;
+      default:
+        this.particles.spawnInteractionFlare(cx, cy, Math.round(intensity * 127), theme, width, height);
+        for (let i = 0; i < burst; i += 1) {
+          this.particles.spawnReverbSpores(width, height, intensity, theme, true);
+        }
+        break;
+    }
+  }
+
+  private buildFrameOutput(musicalColor: MusicalColorFrame, ambientColorHint: string): AsciiFrameOutput {
+    return {
+      text: this.renderer.toString(),
+      html: this.renderer.toHtml(),
+      musicalColor,
+      ambientColorHint,
+    };
   }
 }
 

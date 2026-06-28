@@ -10,6 +10,7 @@ import {
   decayPointerActivity,
 } from '../stores/pointerStore';
 import { tickVisualEnergy } from '../stores/visualEnergyStore';
+import { tickMusicalColor } from '../stores/musicalColorStore';
 import {
   getVizAccessibility,
   initVizAccessibility,
@@ -17,6 +18,7 @@ import {
 } from '../stores/visualizationStore';
 import { getPresetStore, subscribePresetStore } from '../stores/presetStore';
 import { AsciiEngine } from '../visualization/AsciiEngine';
+import { resolvePresetTheme } from '../visualization/PresetThemes';
 import { TARGET_VIZ_FPS } from '../visualization/VisualFeedback';
 import {
   buildSliderVizState,
@@ -24,7 +26,15 @@ import {
   type SliderVizState,
 } from '../visualization/SliderVisualEffects';
 import { behaviorFromVisualEnergy } from '../visualization/VisualEnergy';
+import { behaviorForRenderMode, resolveExperientialMode } from '../visualization/VisualMode';
+import { isTransportAmbientActive } from '../transport/transportStore';
+import {
+  amplifyBehaviorForPerformance,
+  createPerformanceAnimationState,
+  tickPerformanceAnimation,
+} from '../visualization/PerformanceAnimation';
 import { computeViewportLayout } from '../visualization/viewportLayout';
+import { interpolateMusicalColor, saturateHex } from '../visuals/colorMusicTheory';
 import type { VizInputSnapshot } from '../visualization/types';
 
 export type AsciiVisualizationProps = {
@@ -67,12 +77,17 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
   );
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const cameraRef = useRef<HTMLDivElement>(null);
+  const compositionRef = useRef<HTMLDivElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
   const engineRef = useRef<AsciiEngine | null>(null);
   const frameRef = useRef<number | null>(null);
+  const performanceRef = useRef(createPerformanceAnimationState());
+  const displayScaleRef = useRef(1);
   const prevSlidersRef = useRef<SliderVizState | null>(null);
   const presetTransitionRef = useRef(0);
   const lastPresetIdRef = useRef('');
+  const blendedAmbientRef = useRef('#7FD88F');
   const presetRef = useRef({
     presetId: props.presetId ?? 'seed',
     presetName: props.presetName ?? 'Seed',
@@ -130,6 +145,7 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
         gridWidth: layout.width,
         gridHeight: layout.height,
       });
+      displayScaleRef.current = layout.scale;
     };
 
     updateGrid();
@@ -210,16 +226,72 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
           presetTransition: presetTransitionRef.current,
           interactionBoost: midiStore.interactionBurst,
           reduceMotion: accessibility.reduceMotion,
+          ambientActive: isTransportAmbientActive(),
         },
         deltaMs,
         accessibility,
       );
 
-      const energyBehavior = behaviorFromVisualEnergy(
-        energyState.visualEnergy,
-        energyState.sources,
+      const sceneTheme = activePreset
+        ? resolvePresetTheme(activePreset, activeMetadata?.category ?? null)
+        : resolvePresetTheme(currentPresetId, currentPresetName);
+
+      const ambientActive = isTransportAmbientActive();
+      const frameInput = {
+        audio,
+        activeNotes: engineStore.activeNotes,
+        pointerActivity: pointerState.activity,
+        pointerVelocity: pointerState.velocity,
+        pointerActive: pointerState.active,
+        isTouch: pointerState.isTouch,
+        sliderCombined: sliders.combined,
+        sliderDelta,
+        presetTransition: presetTransitionRef.current,
+        interactionBoost: midiStore.interactionBurst,
+        reduceMotion: accessibility.reduceMotion,
+        ambientActive,
+      };
+
+      const performanceState = tickPerformanceAnimation(
+        performanceRef.current,
+        frameInput,
+        energyState,
+        sceneTheme,
+        time / 1000,
+        deltaMs,
         accessibility.reduceMotion,
       );
+      performanceRef.current = performanceState;
+
+      const baseBehavior = behaviorForRenderMode(
+        energyState.renderMode,
+        energyState.displayEnergy,
+        accessibility.reduceMotion,
+        behaviorFromVisualEnergy(
+          energyState.visualEnergy,
+          energyState.sources,
+          accessibility.reduceMotion,
+        ),
+        ambientActive,
+        energyState.playModeEnergy,
+      );
+      const energyBehavior = amplifyBehaviorForPerformance(baseBehavior, performanceState);
+
+      const presetAmbientHex =
+        blendedAmbientRef.current || sceneTheme.colorHint || sceneTheme.colorPalette[0] || '#7FD88F';
+
+      const musicalState = tickMusicalColor({
+        activeNotes: engineStore.activeNotes,
+        presetAmbientHex,
+        deltaMs,
+      });
+
+      const musicalColor = {
+        displayHex: musicalState.display.hex,
+        ambientHex: musicalState.ambient.hex,
+        weight: musicalState.musicalWeight,
+        bloom: musicalState.bloom,
+      };
 
       const snapshot: VizInputSnapshot = {
         audioReady: engineStore.audioReady,
@@ -252,11 +324,61 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
           isTouch: pointerState.isTouch,
         },
         energy: energyState,
+        renderMode: energyState.renderMode,
         energyBehavior,
         presetTransition: presetTransitionRef.current,
+        musicalColor,
+        performance: performanceState,
+        ambientActive,
       };
 
-      pre.textContent = engine.tick(snapshot, deltaMs);
+      const frame = engine.tick(snapshot, deltaMs);
+      blendedAmbientRef.current = frame.ambientColorHint;
+      pre.innerHTML = frame.html;
+
+      const container = containerRef.current;
+      const appShell = document.getElementById('plantasia-app');
+      const canvasColor = saturateHex(
+        musicalState.musicalWeight > 0.08 ? musicalState.display.hex : frame.ambientColorHint,
+      );
+      const canvasRgb =
+        musicalState.musicalWeight > 0.08 ? musicalState.display.rgb : hexToRgb(canvasColor);
+
+      if (appShell) {
+        const uiPrimary = saturateHex(frame.ambientColorHint);
+        appShell.style.setProperty('--plantasia-color-primary', uiPrimary);
+        appShell.style.setProperty('--plantasia-color-organism', uiPrimary);
+        appShell.style.setProperty('--plantasia-color-accent', interpolateAccent(uiPrimary));
+      }
+      if (container) {
+        container.style.setProperty('--musical-color', canvasColor);
+        container.style.setProperty('--musical-color-r', String(canvasRgb.r));
+        container.style.setProperty('--musical-color-g', String(canvasRgb.g));
+        container.style.setProperty('--musical-color-b', String(canvasRgb.b));
+        const glowBase =
+          Math.min(1, musicalState.musicalWeight * 0.65 + musicalState.bloom * 0.35) +
+          performanceState.glowBoost;
+        container.style.setProperty('--musical-glow-opacity', String(Math.min(1, glowBase)));
+        container.style.setProperty('--performance-shimmer', String(performanceState.shimmer));
+        container.dataset.performanceMode = resolveExperientialMode(
+          ambientActive,
+          energyState.playModeEnergy,
+        );
+      }
+
+      const cameraEl = cameraRef.current;
+      const compEl = compositionRef.current;
+      const scale = displayScaleRef.current;
+      if (cameraEl) {
+        cameraEl.style.transform = performanceState.cameraTransform || 'none';
+      }
+      if (compEl) {
+        const comp = performanceState.compositionTransform
+          ? `${performanceState.compositionTransform} scale(${scale})`
+          : `scale(${scale})`;
+        compEl.style.transform = comp;
+        compEl.style.transformOrigin = 'center center';
+      }
     };
 
     const loop = (time: number) => {
@@ -275,11 +397,26 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
 
   return {
     containerRef,
+    cameraRef,
+    compositionRef,
     preRef,
     accessibility,
     audioActive: engineStore.audioReady,
     displayMetrics,
     updatePointerGrid,
     clearPointer,
+  };
+}
+
+function interpolateAccent(primaryHex: string): string {
+  return saturateHex(interpolateMusicalColor(primaryHex, '#48E8C8', 0.12).hex);
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const h = hex.replace('#', '');
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
   };
 }

@@ -2,11 +2,12 @@ import type { ReactNode } from 'react';
 
 type InstrumentShellProps = {
   visualizer: ReactNode;
+  transport: ReactNode;
   controls: ReactNode;
   error: string | null;
 };
 
-export function InstrumentShell({ visualizer, controls, error }: InstrumentShellProps) {
+export function InstrumentShell({ visualizer, transport, controls, error }: InstrumentShellProps) {
   return (
     <div id="plantasia-app" className="instrument-shell" data-stage="instrument">
       <main className="instrument-stage">{visualizer}</main>
@@ -15,7 +16,10 @@ export function InstrumentShell({ visualizer, controls, error }: InstrumentShell
           {error}
         </div>
       ) : null}
-      <footer className="instrument-footer">{controls}</footer>
+      <footer className="instrument-footer">
+        {transport}
+        {controls}
+      </footer>
     </div>
   );
 }

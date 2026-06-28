@@ -1,5 +1,9 @@
-import type { PresetTheme } from './types';
+import { interpolateMusicalColor } from '../visuals/colorMusicTheory';
+import type { CharacterCategory, PresetTheme } from './types';
 import { resolvePresetTheme } from './PresetVisualThemes';
+
+/** Discrete theme fields crossfade after this eased progress (0–1). */
+const DISCRETE_FIELD_THRESHOLD = 0.88;
 
 /** Smooth crossfade between preset visual themes. */
 export class ThemeTransition {
@@ -20,6 +24,11 @@ export class ThemeTransition {
 
   get isTransitioning(): boolean {
     return this.progress < 1;
+  }
+
+  /** Raw linear progress 0–1 for overlay sync. */
+  get transitionProgress(): number {
+    return this.progress;
   }
 
   setTarget(presetId: string, presetName: string): boolean {
@@ -54,25 +63,51 @@ export class ThemeTransition {
     const t = easeInOut(this.progress);
     const a = this.current;
     const b = this.target;
+    const blendPalette = (from: string[], to: string[]): string[] => {
+      if (from.length === 0) {
+        return to;
+      }
+      if (to.length === 0) {
+        return from;
+      }
+      const len = Math.max(from.length, to.length);
+      const out: string[] = [];
+      for (let i = 0; i < len; i += 1) {
+        out.push(interpolateMusicalColor(from[i] ?? from[0], to[i] ?? to[0], t).hex);
+      }
+      return out;
+    };
+
+    const useTargetDiscrete = t >= DISCRETE_FIELD_THRESHOLD;
 
     return {
+      ...a,
       ...b,
-      id: b.id,
-      name: b.name,
+      id: useTargetDiscrete ? b.id : a.id,
+      name: useTargetDiscrete ? b.name : a.name,
+      asciiState: useTargetDiscrete ? b.asciiState : a.asciiState,
+      engineSpecies: useTargetDiscrete ? b.engineSpecies : a.engineSpecies,
+      category: useTargetDiscrete ? b.category : a.category,
+      visualMetadata: useTargetDiscrete ? b.visualMetadata : a.visualMetadata,
+      species: useTargetDiscrete ? b.species : a.species,
+      accentChars: useTargetDiscrete ? b.accentChars : blendCharacterSet(a.accentChars, b.accentChars, t),
+      growthStyle: useTargetDiscrete ? b.growthStyle : a.growthStyle,
+      particleBehavior: useTargetDiscrete ? b.particleBehavior : a.particleBehavior,
+      bloomBehavior: useTargetDiscrete ? b.bloomBehavior : a.bloomBehavior,
       density: lerp(a.density, b.density, t),
       animationSpeed: lerp(a.animationSpeed, b.animationSpeed, t),
       windStrength: lerp(a.windStrength, b.windStrength, t),
       rhythm: lerp(a.rhythm, b.rhythm, t),
       contrast: lerp(a.contrast, b.contrast, t),
-      characterSet: t < 0.5 ? a.characterSet : b.characterSet,
-      palette: t < 0.5 ? a.palette : b.palette,
-      particleBias: t < 0.5 ? a.particleBias : b.particleBias,
-      growthBehavior: t < 0.5 ? a.growthBehavior : b.growthBehavior,
-      motionStyle: t < 0.5 ? a.motionStyle : b.motionStyle,
-      spatialLayout: t < 0.5 ? a.spatialLayout : b.spatialLayout,
-      decayBehavior: t < 0.5 ? a.decayBehavior : b.decayBehavior,
-      colorHint: t < 0.5 ? a.colorHint : b.colorHint,
-      colorPalette: t < 0.5 ? a.colorPalette : b.colorPalette,
+      characterSet: useTargetDiscrete ? b.characterSet : blendCharacterSet(a.characterSet, b.characterSet, t),
+      palette: useTargetDiscrete ? b.palette : blendCategoryPalette(a.palette, b.palette, t),
+      particleBias: useTargetDiscrete ? b.particleBias : a.particleBias,
+      growthBehavior: useTargetDiscrete ? b.growthBehavior : a.growthBehavior,
+      motionStyle: useTargetDiscrete ? b.motionStyle : a.motionStyle,
+      spatialLayout: useTargetDiscrete ? b.spatialLayout : a.spatialLayout,
+      decayBehavior: useTargetDiscrete ? b.decayBehavior : a.decayBehavior,
+      colorHint: interpolateMusicalColor(a.colorHint, b.colorHint, t).hex,
+      colorPalette: blendPalette(a.colorPalette, b.colorPalette),
     };
   }
 }
@@ -83,4 +118,37 @@ function lerp(a: number, b: number, t: number): number {
 
 function easeInOut(t: number): number {
   return t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+}
+
+/** Gradually introduce target glyphs as transition progresses. */
+function blendCharacterSet(from: string[], to: string[], t: number): string[] {
+  if (from.length === 0) {
+    return to;
+  }
+  if (to.length === 0) {
+    return from;
+  }
+  const len = Math.max(from.length, to.length);
+  const out: string[] = [];
+  for (let i = 0; i < len; i += 1) {
+    const threshold = 0.35 + (i / len) * 0.55;
+    out.push(t >= threshold ? (to[i % to.length] ?? to[0]) : (from[i % from.length] ?? from[0]));
+  }
+  return out;
+}
+
+function blendCategoryPalette(from: CharacterCategory[], to: CharacterCategory[], t: number): CharacterCategory[] {
+  if (from.length === 0) {
+    return to;
+  }
+  if (to.length === 0) {
+    return from;
+  }
+  const len = Math.max(from.length, to.length);
+  const out: CharacterCategory[] = [];
+  for (let i = 0; i < len; i += 1) {
+    const threshold = 0.4 + (i / len) * 0.5;
+    out.push(t >= threshold ? (to[i % to.length] ?? to[0]) : (from[i % from.length] ?? from[0]));
+  }
+  return out;
 }

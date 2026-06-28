@@ -3,8 +3,9 @@ import type { ActiveNoteState } from '../stores/engineStore';
 import type { AudioVizFeedback } from '../audio/visualization/AudioTap';
 import type { ModulationControlValues, SoundControlValues } from '../types/instrument';
 import type { SourceEnergyMap, UnifiedVisualEnergyState, VisualEnergyBehavior } from './VisualEnergy';
+import type { VisualRenderMode } from './VisualMode';
 
-export type { VisualEnergyBehavior, UnifiedVisualEnergyState, SourceEnergyMap };
+export type { VisualEnergyBehavior, UnifiedVisualEnergyState, SourceEnergyMap, VisualRenderMode };
 
 /** Botanical character categories for procedural rendering. */
 export type CharacterCategory =
@@ -211,10 +212,34 @@ export type VizInputSnapshot = {
   };
   /** Unified visual energy model (Milestone 12B). */
   energy: UnifiedVisualEnergyState;
+  /** idleHome vs activePlay render path (Milestone 12D idle). */
+  renderMode: VisualRenderMode;
   /** Derived ASCII behavior from energy. */
   energyBehavior: VisualEnergyBehavior;
   /** 0–1 preset theme crossfade progress (0 = mid-transition). */
   presetTransition: number;
+  /** Active Scriabin musical color frame (Milestone 12D). */
+  musicalColor: MusicalColorFrame;
+  /** Expressive performance transforms (Milestone 13C). */
+  performance: import('./PerformanceAnimation').PerformanceAnimationState;
+  /** Transport ambient session active (Milestone 13D). */
+  ambientActive: boolean;
+};
+
+/** Runtime musical color passed into the ASCII renderer for glyph tinting. */
+export type MusicalColorFrame = {
+  displayHex: string;
+  ambientHex: string;
+  weight: number;
+  bloom: number;
+};
+
+export type AsciiFrameOutput = {
+  text: string;
+  html: string;
+  musicalColor: MusicalColorFrame;
+  /** Blended preset ambient — drives UI accent crossfade. */
+  ambientColorHint: string;
 };
 
 export type NoteSpawnEvent = {

@@ -441,6 +441,37 @@ export function describeThemeResolution(preset: PlantasiaPreset): string | null 
   return null;
 }
 
+/** Resolve visual template key from a resolved PresetTheme (idle painters, overlays). */
+export function resolveThemeTemplateKeyFromTheme(theme: PresetTheme): string {
+  const fromMeta = theme.visualMetadata?.asciiTheme;
+  if (fromMeta && fromMeta in THEME_TEMPLATES) {
+    return fromMeta;
+  }
+
+  switch (theme.asciiState) {
+    case 'seed':
+      return 'seed';
+    case 'growth':
+      return theme.engineSpecies === 'Fern' ? 'fern' : 'root';
+    case 'bloom':
+      if (theme.engineSpecies === 'Crystal') {
+        return 'crystal';
+      }
+      if (theme.engineSpecies === 'Juno Flowers') {
+        return 'juno';
+      }
+      return 'bloom';
+    case 'mutation':
+      return 'mutation';
+    case 'mycelium':
+      return theme.engineSpecies === 'Vine' ? 'vine' : 'mycelium';
+    case 'ecosystem':
+      return theme.engineSpecies === 'Plantasonic' ? 'plantasonic' : 'coral';
+    default:
+      return 'seed';
+  }
+}
+
 function selectThemeTemplateKey(preset: PlantasiaPreset): keyof typeof THEME_TEMPLATES {
   const raw = preset as PlantasiaPreset & Record<string, unknown>;
   const visual = extractVisualMetadata(preset, raw);

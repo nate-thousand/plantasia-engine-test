@@ -4,6 +4,7 @@ export {
   getPresetVisualTheme,
   listPresetVisualThemes,
   resolvePresetTheme,
+  resolveThemeTemplateKeyFromTheme,
   speciesForOscillator,
   toPresetTheme,
 } from './PresetVisualThemes';

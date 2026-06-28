@@ -37,6 +37,7 @@ Plantasia separates **synthesis** (library) from **application** (this repo). Th
 | `src/layouts/` | Page and panel layouts |
 | `src/hooks/` | Shared React hooks |
 | `src/stores/` | Application state |
+| `src/transport/` | Unified playback controller — single source for play/stop, hold, and transport state |
 | `src/systems/` | Cross-cutting coordinators (input, animation) |
 | `src/tokens/` | Design tokens — SCSS and CSS variables |
 | `src/styles/` | Global styles; Bootstrap SCSS entry |
@@ -119,6 +120,42 @@ useAsciiVisualization → AsciiEngine (theme reset + crossfade)
 Control defaults come from each preset's `controls` block via engine `getPresetControls()`.
 
 See [PRESETS.md](./PRESETS.md) for the Sound World metadata schema and extension guide.
+
+## Unified Transport (Milestone 13B)
+
+All playback — UI, keyboard, MIDI, and programmatic — routes through one controller.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  UnifiedTransport.tsx  (Play · Stop · Preset · Menu)    │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+         Spacebar ──────────┤
+         MIDI pads/CC ──────┼──→ transportActions.ts
+         Keyboard notes ───┤         │
+                            │         ├→ EngineAdapter (audio)
+                            │         ├→ engineStore (activeNotes, audioReady sync)
+                            │         └→ transportStore (transportState, hold)
+                            │
+         useAsciiVisualization ← engineStore.audioReady + visualEnergy
+```
+
+### Transport states
+
+| State | Meaning |
+|-------|---------|
+| `idle` | Audio context not started |
+| `loading` | Unlock + preset bootstrap in progress |
+| `ready` | Audio running, ambient idle |
+| `playing` | Chord burst and/or active notes |
+
+### Playback lifecycle
+
+- **Play** (UI, Space, or MIDI): start audio if needed → trigger chord → set `playing`
+- **Stop**: `stopAllNotes()` → clear active notes → `ready` (preset unchanged)
+- **Notes** (keyboard/MIDI): `transportNoteOn` / `transportNoteOff` with shared hold flag
+
+Settings drawer (`ControlDock`) holds sound, MIDI, keyboard hold, modulation, and viz — not duplicate transport controls.
 
 ## Sound World Metadata Flow
 

@@ -1,19 +1,29 @@
+import { interpolateMusicalColor } from '../visuals/colorMusicTheory';
 import { densityChar } from './CharacterPalette';
 import { paintBotanicalScene } from './BotanicalScenes';
-import { paintInteractionOverlays, paintPresetTransitionOverlay } from './InteractionOverlays';
+import { paintInteractionOverlays, paintIdlePresetTransition, paintPresetTransitionOverlay } from './InteractionOverlays';
 import { pickThemeChar } from './ThemeCharacters';
-import type { VisualEnergyBehavior } from './VisualEnergy';
 import type { SliderVizState } from './SliderVisualEffects';
-import type { BranchSegment, PresetTheme, VizParticle } from './types';
+import type {
+  BranchSegment,
+  MusicalColorFrame,
+  PresetTheme,
+  VisualEnergyBehavior,
+  VisualRenderMode,
+  VizParticle,
+} from './types';
 
 export type GridDimensions = {
   width: number;
   height: number;
 };
 
+type CellTint = 'subtle' | 'accent' | 'full';
+
 type CellLayer = {
   char: string;
   priority: number;
+  tint: CellTint | null;
 };
 
 /**
@@ -26,7 +36,9 @@ export class AsciiRenderer {
 
   private grid: CellLayer[][];
   private stringCache: string = '';
+  private htmlCache: string = '';
   private dirty = true;
+  private musicalFrame: MusicalColorFrame | null = null;
 
   constructor(dimensions: GridDimensions) {
     this.width = dimensions.width;
@@ -37,9 +49,15 @@ export class AsciiRenderer {
   clear(): void {
     for (let y = 0; y < this.height; y += 1) {
       for (let x = 0; x < this.width; x += 1) {
-        this.grid[y][x] = { char: ' ', priority: 0 };
+        this.grid[y][x] = { char: ' ', priority: 0, tint: null };
       }
     }
+    this.dirty = true;
+  }
+
+  /** Apply active Scriabin musical color for glyph tinting this frame. */
+  setMusicalFrame(frame: MusicalColorFrame | null): void {
+    this.musicalFrame = frame;
     this.dirty = true;
   }
 
@@ -76,6 +94,10 @@ export class AsciiRenderer {
       isTouch: boolean;
     },
     energyBehavior: VisualEnergyBehavior,
+    renderMode: VisualRenderMode,
+    performance?: import('./PerformanceAnimation').PerformanceAnimationState,
+    ambientActive?: boolean,
+    playModeEnergy?: number,
   ): void {
     paintBotanicalScene({
       width: this.width,
@@ -88,9 +110,13 @@ export class AsciiRenderer {
       sliders,
       interactionPulse,
       visualEnergy,
+      renderMode,
       asciiDensityScale: energyBehavior.density,
       pointer,
       energyBehavior,
+      performance,
+      ambientActive,
+      playModeEnergy,
       paint: (x, y, char, priority) => this.setChar(x, y, char, priority),
     });
   }
@@ -257,6 +283,7 @@ export class AsciiRenderer {
     time: number,
     interactionPulse: number,
     energyBehavior: VisualEnergyBehavior,
+    visualEnergy = 0.5,
   ): void {
     paintInteractionOverlays({
       width: this.width,
@@ -264,6 +291,7 @@ export class AsciiRenderer {
       theme,
       time,
       pulse: interactionPulse,
+      visualEnergy,
       jitter: energyBehavior.jitter,
       spread: energyBehavior.spread,
       paint: (x, y, char, priority) => this.setChar(x, y, char, priority),
@@ -275,16 +303,22 @@ export class AsciiRenderer {
     time: number,
     progress: number,
     energyBehavior: VisualEnergyBehavior,
+    idle = false,
   ): void {
-    paintPresetTransitionOverlay({
+    const ctx = {
       width: this.width,
       height: this.height,
       theme,
       time,
       progress,
       distortion: energyBehavior.distortion,
-      paint: (x, y, char, priority) => this.setChar(x, y, char, priority),
-    });
+      paint: (x: number, y: number, char: string, priority: number) => this.setChar(x, y, char, priority),
+    };
+    if (idle) {
+      paintIdlePresetTransition(ctx);
+    } else {
+      paintPresetTransitionOverlay(ctx);
+    }
   }
 
   setChar(x: number, y: number, char: string, priority: number): void {
@@ -296,6 +330,7 @@ export class AsciiRenderer {
     if (priority >= cell.priority) {
       cell.char = char;
       cell.priority = priority;
+      cell.tint = resolveCellTint(char, priority, this.musicalFrame);
       this.dirty = true;
     }
   }
@@ -308,15 +343,97 @@ export class AsciiRenderer {
     this.stringCache = this.grid
       .map((row) => row.map((cell) => cell.char).join(''))
       .join('\n');
-    this.dirty = false;
     return this.stringCache;
+  }
+
+  /** HTML with per-glyph Scriabin tint on accent layers (priority ≥ 3). */
+  toHtml(): string {
+    if (!this.dirty && this.htmlCache) {
+      return this.htmlCache;
+    }
+
+    this.stringCache = this.grid
+      .map((row) => row.map((cell) => cell.char).join(''))
+      .join('\n');
+    this.htmlCache = buildColoredHtml(this.grid, this.musicalFrame);
+    this.dirty = false;
+    return this.htmlCache;
   }
 
   private createEmptyGrid(): CellLayer[][] {
     return Array.from({ length: this.height }, () =>
-      Array.from({ length: this.width }, () => ({ char: ' ', priority: 0 })),
+      Array.from({ length: this.width }, () => ({ char: ' ', priority: 0, tint: null })),
     );
   }
+}
+
+function resolveCellTint(
+  char: string,
+  priority: number,
+  frame: MusicalColorFrame | null,
+): CellTint | null {
+  if (!frame || char === ' ' || priority < 3 || frame.weight < 0.04) {
+    return null;
+  }
+  if (priority >= 8) {
+    return 'full';
+  }
+  if (priority >= 5) {
+    return 'accent';
+  }
+  return 'subtle';
+}
+
+function cellDisplayColor(cell: CellLayer, frame: MusicalColorFrame | null): string | null {
+  if (!frame || !cell.tint) {
+    return null;
+  }
+  const tintWeight = cell.tint === 'full' ? 1 : cell.tint === 'accent' ? 0.82 : 0.58;
+  const blend = Math.min(1, Math.max(0.55, frame.weight * tintWeight + frame.bloom * 0.22));
+  return interpolateMusicalColor(frame.ambientHex, frame.displayHex, blend).hex;
+}
+
+function buildColoredHtml(grid: CellLayer[][], frame: MusicalColorFrame | null): string {
+  const lines: string[] = [];
+
+  for (const row of grid) {
+    let line = '';
+    let runColor: string | null = null;
+    let runChars = '';
+
+    const flushRun = () => {
+      if (runChars.length === 0) {
+        return;
+      }
+      if (runColor) {
+        line += `<span style="color:${runColor}">${escapeHtml(runChars)}</span>`;
+      } else {
+        line += escapeHtml(runChars);
+      }
+      runChars = '';
+      runColor = null;
+    };
+
+    for (const cell of row) {
+      const color = cellDisplayColor(cell, frame);
+      if (color !== runColor) {
+        flushRun();
+        runColor = color;
+      }
+      runChars += cell.char;
+    }
+    flushRun();
+    lines.push(line);
+  }
+
+  return lines.join('\n');
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function backgroundNoise(theme: PresetTheme, x: number, y: number, seed: number): number {

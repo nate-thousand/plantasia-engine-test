@@ -1,0 +1,181 @@
+/* Unified playback transport — always visible, 44px min touch targets on mobile */
+
+.unified-transport {
+  align-items: center;
+  backdrop-filter: blur(8px);
+  background: rgba(8, 16, 9, 0.88);
+  border: 1px solid var(--plantasia-color-border);
+  border-radius: var(--plantasia-radius-md);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--plantasia-space-sm);
+  justify-content: space-between;
+  margin: 0 var(--plantasia-space-sm) var(--plantasia-space-sm);
+  padding: var(--plantasia-space-sm) var(--plantasia-space-md);
+  width: calc(100% - var(--plantasia-space-lg));
+}
+
+.unified-transport__playback,
+.unified-transport__preset {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--plantasia-space-xs);
+}
+
+.unified-transport__preset {
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+}
+
+.unified-transport__btn {
+  align-items: center;
+  background: var(--plantasia-color-surface);
+  border: 1px solid var(--plantasia-color-border);
+  border-radius: var(--plantasia-radius-sm);
+  color: var(--plantasia-color-text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--plantasia-font-mono);
+  font-size: var(--plantasia-font-size-md);
+  justify-content: center;
+  line-height: 1;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0 var(--plantasia-space-sm);
+  text-transform: lowercase;
+  transition:
+    border-color var(--plantasia-duration-fast) var(--plantasia-ease-in-out),
+    color var(--plantasia-duration-fast) var(--plantasia-ease-in-out),
+    background-color var(--plantasia-duration-fast) var(--plantasia-ease-in-out),
+    box-shadow var(--plantasia-duration-normal) var(--plantasia-ease-in-out);
+}
+
+.unified-transport__btn:hover:not(:disabled) {
+  border-color: var(--plantasia-color-primary);
+  color: var(--plantasia-color-primary);
+}
+
+.unified-transport__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.unified-transport__btn--active,
+.unified-transport__btn--primary.unified-transport__btn--active {
+  background: var(--plantasia-color-primary-soft);
+  border-color: var(--plantasia-color-primary);
+  color: var(--plantasia-color-primary);
+}
+
+.unified-transport__btn--primary {
+  min-width: 3rem;
+}
+
+.unified-transport[data-transport-state='playing'] .unified-transport__btn--primary {
+  box-shadow: 0 0 0 1px var(--plantasia-color-primary-muted);
+}
+
+.unified-transport[data-transport-state='loading'] .unified-transport__btn--primary {
+  animation: transport-pulse 1s var(--plantasia-ease-in-out) infinite;
+}
+
+.unified-transport[data-midi-connected='true'] .unified-transport__state::after {
+  color: var(--plantasia-color-accent);
+  content: ' · MIDI';
+}
+
+.unified-transport__select {
+  background: var(--plantasia-color-surface);
+  border: 1px solid var(--plantasia-color-border);
+  border-radius: var(--plantasia-radius-sm);
+  color: var(--plantasia-color-text-primary);
+  flex: 1;
+  font-family: var(--plantasia-font-mono);
+  font-size: var(--plantasia-font-size-sm);
+  letter-spacing: var(--plantasia-letter-spacing-ui);
+  max-width: 14rem;
+  min-height: 2.75rem;
+  min-width: 0;
+  padding: 0 var(--plantasia-space-sm);
+  transition: border-color var(--plantasia-duration-fast) var(--plantasia-ease-in-out);
+}
+
+.unified-transport__select:focus {
+  border-color: var(--plantasia-color-primary);
+  outline: none;
+}
+
+.unified-transport__select:disabled {
+  opacity: 0.45;
+}
+
+.unified-transport__status {
+  align-items: baseline;
+  display: none;
+  flex-direction: column;
+  font-family: var(--plantasia-font-mono);
+  font-size: var(--plantasia-font-size-xs);
+  gap: 0.125rem;
+  letter-spacing: var(--plantasia-letter-spacing-ui);
+  min-width: 4.5rem;
+}
+
+.unified-transport__state {
+  color: var(--plantasia-color-primary);
+  text-transform: uppercase;
+}
+
+.unified-transport__meta {
+  color: var(--plantasia-color-text-secondary);
+}
+
+.instrument-footer {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 0;
+  width: 100%;
+}
+
+@keyframes transport-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (min-width: 640px) {
+  .unified-transport__status {
+    display: flex;
+  }
+}
+
+@media (max-width: 480px) {
+  .unified-transport {
+    bottom: env(safe-area-inset-bottom, 0);
+    flex-wrap: nowrap;
+    gap: var(--plantasia-space-xs);
+    margin: 0;
+    padding: var(--plantasia-space-sm);
+    width: 100%;
+  }
+
+  .unified-transport__btn {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+
+  .unified-transport__select {
+    max-width: none;
+  }
+
+  .unified-transport__status {
+    display: none;
+  }
+}

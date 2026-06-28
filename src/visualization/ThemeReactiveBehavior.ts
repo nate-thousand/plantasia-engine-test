@@ -21,6 +21,36 @@ const DEFAULT_PROFILE: ThemeReactiveProfile = {
 };
 
 const THEME_PROFILES: Record<string, Partial<ThemeReactiveProfile>> = {
+  seed: {
+    trebleBloomBoost: 1.15,
+    velocityDensityScale: 0.85,
+    sustainDriftBoost: 1.1,
+  },
+  fern: {
+    sustainDriftBoost: 1.3,
+    slowNoteGlow: 1.2,
+    velocityDensityScale: 0.95,
+  },
+  coral: {
+    sustainDriftBoost: 1.15,
+    velocityDensityScale: 0.7,
+    trebleBloomBoost: 1.25,
+  },
+  vine: {
+    sustainDriftBoost: 1.35,
+    velocityDensityScale: 1.15,
+    bassBranchExtend: 1.1,
+  },
+  crystal: {
+    trebleBloomBoost: 1.4,
+    sustainDriftBoost: 1.25,
+    slowNoteGlow: 1.35,
+  },
+  juno: {
+    trebleBloomBoost: 1.45,
+    pitchBloomThreshold: 62,
+    velocityDensityScale: 1.05,
+  },
   bloom: {
     trebleBloomBoost: 1.55,
     pitchBloomThreshold: 64,

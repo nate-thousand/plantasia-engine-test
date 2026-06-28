@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore, useState } from 'react';
 import { engineAdapter } from '../audio/EngineAdapter';
-import { startAudioEngine, playEngineNote, stopEngineNote } from '../audio/engine';
-import {
-  bootstrapPresetCatalog,
-  buildPresetCatalog,
-  loadPresetAtIndex,
-  randomPresetIndex,
-} from '../audio/presets';
-import { resolvePresetIndexFromProgram } from '../input/PresetMidiDefaults';
 import { formatCategoryLabel } from '../presets/categories';
 import { KeyboardInput } from '../input/KeyboardInput';
 import { MidiInputManager } from '../input/MidiInput';
@@ -17,7 +9,6 @@ import {
   toggleMidiLearn,
 } from '../input/MidiLearn';
 import type { MidiControlTarget } from '../input/MidiDefaults';
-import { registerMidiActionHandlers, initMidiPipeline } from '../input/MidiRouter';
 import {
   getControlStore,
   subscribeControlChanges,
@@ -28,17 +19,25 @@ import {
 import {
   getEngineStore,
   patchEngineStore,
-  clearActiveNotes,
-  registerNoteOff,
-  registerNoteOn,
   subscribeEngineStore,
 } from '../stores/engineStore';
-import { getMidiStore, subscribeMidiStore, pulseScreenFeedback } from '../stores/midiStore';
+import { getMidiStore, subscribeMidiStore } from '../stores/midiStore';
 import {
   getPresetStore,
-  resetPresetStore,
   subscribePresetStore,
 } from '../stores/presetStore';
+import { randomPresetIndex } from '../audio/presets';
+import {
+  transportNoteOff,
+  transportNoteOn,
+  transportReconcileChordIdle,
+  transportSelectPreset,
+  transportSetHold,
+  transportToggleHold,
+} from '../transport/transportActions';
+import { attachTransportKeyboard, initTransport } from '../transport/initTransport';
+import { getTransportStore, subscribeTransportStore, setTransportError } from '../transport/transportStore';
+import { useTransport } from '../transport/useTransport';
 import type {
   ModulationControlValues,
   PresetSummary,
@@ -47,11 +46,10 @@ import type {
 import {
   midiStateIndicator,
   visualStateIndicator,
-  type InstrumentVisualState,
 } from '../visuals/organism/InstrumentVisualState';
 
 function catalogToSummaries(
-  catalog: ReturnType<typeof bootstrapPresetCatalog>['catalog'],
+  catalog: ReturnType<typeof getPresetStore>['catalog'],
 ): PresetSummary[] {
   return catalog.map((entry) => ({
     id: entry.metadata.id,
@@ -72,191 +70,74 @@ export function useInstrument() {
   const controlStore = useSyncExternalStore(subscribeControlStore, getControlStore, getControlStore);
   const midiStore = useSyncExternalStore(subscribeMidiStore, getMidiStore, getMidiStore);
   const presetStore = useSyncExternalStore(subscribePresetStore, getPresetStore, getPresetStore);
+  const transportStore = useSyncExternalStore(subscribeTransportStore, getTransportStore, getTransportStore);
+  const transport = useTransport();
 
   const sound = controlStore.sound;
   const modulation = controlStore.modulation;
 
-  const [manualVisual, setManualVisual] = useState<InstrumentVisualState>('dormant');
-  const [holdEnabled, setHoldEnabled] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [presets, setPresets] = useState<PresetSummary[]>([]);
-  const [presetIndex, setPresetIndex] = useState(0);
   const [keyboardOctave, setKeyboardOctave] = useState(0);
 
   const keyboardRef = useRef<KeyboardInput | null>(null);
   const midiRef = useRef<MidiInputManager | null>(null);
-  const holdEnabledRef = useRef(holdEnabled);
-  const presetIndexRef = useRef(presetIndex);
-  const presetsLengthRef = useRef(presets.length);
 
-  holdEnabledRef.current = holdEnabled;
-  presetIndexRef.current = presetIndex;
-  presetsLengthRef.current = presets.length;
-
-  const audioReady = engineStore.audioReady;
-  const isInitializing = engineStore.isInitializing;
+  const presets = useMemo(() => catalogToSummaries(presetStore.catalog), [presetStore.catalog]);
+  const presetIndex = presetStore.activeIndex;
 
   const activePreset = presetStore.activePreset;
   const activeMetadata = presetStore.activeMetadata;
 
-  const visualState: InstrumentVisualState = useMemo(() => {
-    if (!audioReady) {
-      return 'dormant';
-    }
-
-    if (engineStore.activeNoteCount > 0) {
-      return 'playing';
-    }
-
-    if (manualVisual === 'dormant') {
-      return 'active';
-    }
-
-    return manualVisual;
-  }, [audioReady, engineStore.activeNoteCount, manualVisual]);
+  const visualState = transport.visualState;
 
   const organismStateLabel = useMemo(() => {
-    if (!audioReady) {
+    if (transport.transportState === 'idle' || transport.transportState === 'loading') {
       return 'dormant';
     }
-    if (engineStore.activeNoteCount > 0) {
+    if (engineStore.activeNoteCount > 0 || transport.isPlaying) {
       return 'playing';
     }
-    return visualState === 'active' ? 'active' : visualState;
-  }, [audioReady, engineStore.activeNoteCount, visualState]);
+    return 'active';
+  }, [transport.transportState, transport.isPlaying, engineStore.activeNoteCount]);
 
-  const currentPresetName = audioReady ? (activeMetadata?.name ?? presets[presetIndex]?.name ?? '—') : '—';
+  const currentPresetName = transport.audioReady
+    ? (activeMetadata?.name ?? presets[presetIndex]?.name ?? '—')
+    : '—';
   const currentPresetCategory = activeMetadata?.category
     ? formatCategoryLabel(activeMetadata.category)
     : null;
 
-  const handleNoteOn = useCallback((midi: number, velocity: number) => {
-    if (!engineAdapter.isAudioRunning()) {
-      return;
-    }
-
-    try {
-      engineAdapter.noteOn(midi, velocity);
-      registerNoteOn(midi, velocity);
-      pulseScreenFeedback(velocity, 'padHit');
-    } catch (caught) {
-      const message = caught instanceof Error ? caught.message : 'Note could not play.';
-      setError(message);
-    }
-  }, []);
-
-  const handleNoteOff = useCallback((midi: number) => {
-    if (holdEnabledRef.current) {
-      return;
-    }
-    engineAdapter.noteOff(midi);
-    registerNoteOff(midi);
-    pulseScreenFeedback(55, 'padHit');
-  }, []);
-
   const selectPreset = useCallback(
     async (index: number, preserveControls = false) => {
-      if (!audioReady || presets.length === 0) {
-        return;
-      }
-
-      const wrapped = ((index % presets.length) + presets.length) % presets.length;
-
-      try {
-        await loadPresetAtIndex(wrapped, { preserveControls });
-        setPresetIndex(wrapped);
-        setError(null);
-        pulseScreenFeedback(127, 'presetChange');
-      } catch (caught) {
-        const message = caught instanceof Error ? caught.message : 'Preset could not load.';
-        setError(message);
-      }
+      await transportSelectPreset(index, preserveControls);
     },
-    [audioReady, presets.length],
+    [],
   );
 
-  const play = useCallback(() => {
-    if (!audioReady) {
-      return;
-    }
-
-    try {
-      playEngineNote();
-      setManualVisual('playing');
-      pulseScreenFeedback(110, 'play');
-    } catch (caught) {
-      const message = caught instanceof Error ? caught.message : 'Note could not play.';
-      setError(message);
-    }
-  }, [audioReady]);
-
-  const stop = useCallback(() => {
-    if (!audioReady) {
-      return;
-    }
-
-    try {
-      stopEngineNote();
-      clearActiveNotes();
-      setManualVisual('resting');
-      pulseScreenFeedback(90, 'stop');
-    } catch (caught) {
-      const message = caught instanceof Error ? caught.message : 'Note could not stop.';
-      setError(message);
-    }
-  }, [audioReady]);
-
-  const toggleHold = useCallback(() => {
-    setHoldEnabled((current) => !current);
-    pulseScreenFeedback(70, 'knobTwist', 'hold');
-  }, []);
-
-  const setHold = useCallback((enabled: boolean) => {
-    setHoldEnabled(enabled);
+  useEffect(() => {
+    initTransport();
+    const detachKeyboard = attachTransportKeyboard();
+    return detachKeyboard;
   }, []);
 
   useEffect(() => {
-    initMidiPipeline();
-
-    registerMidiActionHandlers({
-      onPlay: play,
-      onStop: stop,
-      onToggleHold: toggleHold,
-      onSetHold: setHold,
-      onPresetPrevious: () => void selectPreset(presetIndexRef.current - 1),
-      onPresetNext: () => void selectPreset(presetIndexRef.current + 1),
-      onPresetRandom: () =>
-        void selectPreset(randomPresetIndex(presetIndexRef.current, presetsLengthRef.current)),
-      onProgramChange: (program) => {
-        const catalog = buildPresetCatalog();
-        const index = resolvePresetIndexFromProgram(program, catalog);
-        if (index !== null) {
-          void selectPreset(index);
-        }
-      },
-    });
-
-    return () => registerMidiActionHandlers(null);
-  }, [play, stop, toggleHold, setHold, selectPreset]);
+    transportReconcileChordIdle();
+  }, [engineStore.activeNoteCount, transportStore.chordActive]);
 
   useEffect(() => {
     return subscribeControlChanges((nextSound, nextModulation, source) => {
-      if (source === 'midi' && engineAdapter.isAudioRunning()) {
-        engineAdapter.applyControlSurface(nextSound, nextModulation);
+      if (engineAdapter.isAudioRunning()) {
+        if (source === 'midi') {
+          engineAdapter.applyControlSurface(nextSound, nextModulation);
+        }
+        engineAdapter.applyAmbientControls(nextSound, nextModulation);
       }
     });
   }, []);
 
   useEffect(() => {
-    if (audioReady && engineStore.activeNoteCount === 0 && manualVisual === 'playing') {
-      setManualVisual('resting');
-    }
-  }, [audioReady, engineStore.activeNoteCount, manualVisual]);
-
-  useEffect(() => {
     const keyboard = new KeyboardInput({
-      onNoteOn: (midi, velocity) => handleNoteOn(midi, velocity),
-      onNoteOff: (midi) => handleNoteOff(midi),
+      onNoteOn: (midi, velocity) => transportNoteOn(midi, velocity, 'keyboard'),
+      onNoteOff: (midi) => transportNoteOff(midi),
       onOctaveChange: (offset) => setKeyboardOctave(offset),
     });
 
@@ -272,40 +153,11 @@ export function useInstrument() {
       keyboardRef.current = null;
       midiRef.current = null;
     };
-  }, [handleNoteOn, handleNoteOff]);
+  }, []);
 
   useEffect(() => {
-    keyboardRef.current?.setEnabled(audioReady && engineStore.keyboardEnabled);
-  }, [audioReady, engineStore.keyboardEnabled]);
-
-  useEffect(() => {
-    setPresetIndex(presetStore.activeIndex);
-  }, [presetStore.activeIndex]);
-
-  const startAudio = useCallback(async () => {
-    setError(null);
-    patchEngineStore({ isInitializing: true });
-
-    try {
-      await startAudioEngine();
-      const { catalog, defaultIndex } = bootstrapPresetCatalog();
-      const summaries = catalogToSummaries(catalog);
-      setPresets(summaries);
-      setPresetIndex(defaultIndex);
-      engineAdapter.applyControlSurface(sound, modulation);
-      await loadPresetAtIndex(defaultIndex);
-      patchEngineStore({ audioReady: true, isInitializing: false, keyboardEnabled: true });
-      setManualVisual('active');
-      pulseScreenFeedback(120, 'play');
-    } catch (caught) {
-      const message =
-        caught instanceof Error ? caught.message : 'Audio could not start.';
-      console.error('[Plantasia Engine Test] Audio start failed:', caught);
-      setError(message);
-      patchEngineStore({ isInitializing: false });
-      resetPresetStore();
-    }
-  }, [sound, modulation]);
+    keyboardRef.current?.setEnabled(transport.audioReady && engineStore.keyboardEnabled);
+  }, [transport.audioReady, engineStore.keyboardEnabled]);
 
   const updateSound = useCallback(
     (key: keyof SoundControlValues, value: number) => {
@@ -313,6 +165,7 @@ export function useInstrument() {
       if (engineAdapter.isAudioRunning()) {
         const store = getControlStore();
         engineAdapter.applyControlSurface(store.sound, store.modulation);
+        engineAdapter.applyAmbientControls(store.sound, store.modulation);
       }
     },
     [],
@@ -324,20 +177,20 @@ export function useInstrument() {
       if (engineAdapter.isAudioRunning()) {
         const store = getControlStore();
         engineAdapter.applyControlSurface(store.sound, store.modulation);
+        engineAdapter.applyAmbientControls(store.sound, store.modulation);
       }
     },
     [],
   );
 
   const connectMidi = useCallback(async () => {
-    setError(null);
-
     try {
       await midiRef.current?.connect();
+      setTransportError(null);
     } catch (caught) {
       const message =
         caught instanceof Error ? caught.message : 'MIDI could not connect.';
-      setError(message);
+      setTransportError(message);
       patchEngineStore({ midiState: 'off' });
     }
   }, []);
@@ -383,16 +236,9 @@ export function useInstrument() {
         midiStore.lastCcNumber !== null
           ? `CC ${midiStore.lastCcNumber}=${midiStore.lastCcValue ?? '—'}`
           : null,
+      transportState: transport.transportState,
     },
-    transport: {
-      audioReady,
-      isInitializing,
-      holdEnabled,
-      onStartAudio: () => void startAudio(),
-      onPlay: play,
-      onStop: stop,
-      onToggleHold: toggleHold,
-    },
+    transport,
     presets: {
       items: presets,
       index: presetIndex,
@@ -404,7 +250,7 @@ export function useInstrument() {
       onNext: (preserveControls?: boolean) =>
         selectPreset(presetIndex + 1, preserveControls ?? false),
       onRandom: (preserveControls?: boolean) =>
-        selectPreset(randomPresetIndex(presetIndex, presets.length), preserveControls ?? false),
+        void selectPreset(randomPresetIndex(presetIndex, presets.length), preserveControls ?? false),
     },
     sound: {
       values: sound,
@@ -417,8 +263,11 @@ export function useInstrument() {
       highlight: controlStore.highlight,
     },
     keyboard: {
-      enabled: engineStore.keyboardEnabled && audioReady,
+      enabled: engineStore.keyboardEnabled && transport.audioReady,
       octaveOffset: keyboardOctave,
+      holdEnabled: transportStore.holdEnabled,
+      onToggleHold: transportToggleHold,
+      onSetHold: transportSetHold,
     },
     midi: {
       state: engineStore.midiState,
@@ -433,12 +282,12 @@ export function useInstrument() {
       mappingCount: midiStore.mappingCount,
       detectedCcs: midiStore.detectedCcs,
       supported: MidiInputManager.isSupported(),
-      onConnect: () => void connectMidi(),
+      onConnect: () => void connectMidi().catch(() => undefined),
       onSelectDevice: selectMidiDevice,
       onToggleLearn: handleToggleLearn,
       onSelectLearnTarget: handleSelectLearnTarget,
     },
-    error,
+    error: transportStore.error,
   };
 }
 

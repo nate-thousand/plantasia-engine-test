@@ -1,12 +1,18 @@
+import {
+  AMBIENT_PLAY,
+  displayVisualEnergy,
+  resolveVisualRenderMode,
+  tickPlayModeEnergy,
+} from './VisualMode';
 import type { AudioVizFeedback } from '../audio/visualization/AudioTap';
 import type { ActiveNoteState } from '../stores/engineStore';
 import type { VizAccessibility } from './types';
 
-/** Sparse idle baseline — dramatically less ASCII than legacy full scenes. */
-export const SPARSE_IDLE_DENSITY = 0.32;
+/** Sparse idle baseline — shape coverage, not wallpaper density (13F). */
+export const SPARSE_IDLE_DENSITY = 0.08;
 
-/** Full reactive peak — interaction + audio + pointer combined. */
-export const PEAK_REACTIVE_DENSITY = 1.35;
+/** Peak reactive — capped so shapes stay readable (13F). */
+export const PEAK_REACTIVE_DENSITY = 0.38;
 
 /** Below this normalized energy, only sparse idle painters run. */
 export const FULL_SCENE_ENERGY_THRESHOLD = 0.22;
@@ -47,6 +53,12 @@ export type SourceEnergyMap = Record<EnergySourceKey, SourceEnergyChannel>;
 export type UnifiedVisualEnergyState = {
   /** Combined normalized intensity 0–1. */
   visualEnergy: number;
+  /** Interaction latch — rises on play/input, decays to idle in ~5.5s. */
+  playModeEnergy: number;
+  /** idleHome (default) vs activePlay (reactive). */
+  renderMode: import('./VisualMode').VisualRenderMode;
+  /** Energy value passed to painters (capped in idleHome). */
+  displayEnergy: number;
   sources: SourceEnergyMap;
 };
 
@@ -78,6 +90,8 @@ export type VisualEnergyFrameInput = {
   presetTransition: number;
   interactionBoost: number;
   reduceMotion: boolean;
+  /** Transport ambient session — Play active (Milestone 13D). */
+  ambientActive: boolean;
 };
 
 export function createSourceEnergyMap(): SourceEnergyMap {
@@ -94,7 +108,13 @@ export function createSourceEnergyMap(): SourceEnergyMap {
 }
 
 export function createUnifiedVisualEnergyState(): UnifiedVisualEnergyState {
-  return { visualEnergy: 0, sources: createSourceEnergyMap() };
+  return {
+    visualEnergy: 0,
+    playModeEnergy: 0,
+    renderMode: 'idleHome',
+    displayEnergy: 0.055,
+    sources: createSourceEnergyMap(),
+  };
 }
 
 /** Bump a source channel impulse (0–1). Called from input hooks on discrete events. */
@@ -116,7 +136,9 @@ function sustainTargets(input: VisualEnergyFrameInput): Record<EnergySourceKey, 
   const audio =
     input.audio.isActive || input.audio.amplitude > 0.02
       ? clamp01(input.audio.amplitude * 0.85 + input.audio.peak * 0.45)
-      : 0;
+      : input.ambientActive
+        ? AMBIENT_PLAY.visualEnergyFloor * (0.85 + Math.sin(Date.now() * 0.00035) * 0.15)
+        : 0;
 
   let midiSustain = 0;
   let keyboardSustain = 0;
@@ -133,7 +155,7 @@ function sustainTargets(input: VisualEnergyFrameInput): Record<EnergySourceKey, 
   const touchBase = input.isTouch ? input.pointerActivity : input.pointerActive ? input.pointerActivity * 0.6 : 0;
   const pointerBoost = input.pointerVelocity * (input.isTouch ? 0.9 : 0.55);
 
-  const control = clamp01(input.sliderCombined * 0.35 + input.sliderDelta * 2.5);
+  const control = clamp01(input.sliderDelta * 2.5);
   const preset = clamp01(input.presetTransition * 0.85);
   const ui = clamp01(input.interactionBoost / 127);
 
@@ -227,8 +249,21 @@ export function tickUnifiedVisualEnergy(
     combined += nextSources[key].current * COMBINE_WEIGHTS[key];
   }
 
+  const playModeEnergy = tickPlayModeEnergy(state.playModeEnergy, input, deltaMs);
+  const renderMode = resolveVisualRenderMode(playModeEnergy, input.ambientActive);
+  const visualEnergy = clamp01(combined);
+  const displayEnergy = displayVisualEnergy(
+    renderMode,
+    visualEnergy,
+    playModeEnergy,
+    input.ambientActive,
+  );
+
   return {
-    visualEnergy: clamp01(combined),
+    visualEnergy,
+    playModeEnergy,
+    renderMode,
+    displayEnergy,
     sources: nextSources,
   };
 }
@@ -246,15 +281,17 @@ export function motionFromVisualEnergy(energy: number, reduceMotion: boolean): n
   return base + clamp01(energy) * (peak - base);
 }
 
-export function shouldRenderFullScene(energy: number): boolean {
-  return energy >= FULL_SCENE_ENERGY_THRESHOLD;
+export function shouldRenderFullScene(_energy: number, _ambientActive = false): boolean {
+  /** Milestone 13F — wallpaper full scenes disabled; shape composition only. */
+  return false;
 }
 
-export function fullSceneBlend(energy: number): number {
-  if (energy <= FULL_SCENE_ENERGY_THRESHOLD) {
+export function fullSceneBlend(energy: number, ambientActive = false): number {
+  const threshold = ambientActive ? AMBIENT_PLAY.fullSceneThreshold : FULL_SCENE_ENERGY_THRESHOLD;
+  if (energy <= threshold) {
     return 0;
   }
-  return Math.min(1, (energy - FULL_SCENE_ENERGY_THRESHOLD) / (1 - FULL_SCENE_ENERGY_THRESHOLD));
+  return Math.min(1, (energy - threshold) / (1 - threshold));
 }
 
 /** Map unified energy + per-source levels → renderer behavior knobs. */
@@ -271,15 +308,15 @@ export function behaviorFromVisualEnergy(
   return {
     density: densityFromVisualEnergy(e),
     speed: motionFromVisualEnergy(e, reduceMotion),
-    spread: 0.12 + e * 0.88 + noteBloom * 0.15,
+    spread: 0.08 + e * 0.42 + noteBloom * 0.08,
     brightness: 0.38 + e * 0.62 + sources.ui.current * 0.1,
-    jitter: reduceMotion ? e * 0.04 + preset * 0.08 : e * 0.32 + preset * 0.25 + control * 0.12,
-    scale: 0.9 + e * 0.14,
-    distortion: clamp01(e * 0.45 + control * 0.5 + sources.audio.current * 0.2),
-    symbolComplexity: 0.15 + e * 0.85,
-    rareEventRate: clamp01(e * 0.22 + preset * 0.35 + noteBloom * 0.15),
-    growthRate: 0.25 + e * 0.65 + noteBloom * 0.2 + sources.touch.current * 0.1,
-    decayRate: clamp01(0.92 - e * 0.28 - noteBloom * 0.12),
+    jitter: reduceMotion ? e * 0.03 + preset * 0.05 : e * 0.22 + preset * 0.18 + control * 0.08,
+    scale: 0.9 + e * 0.1,
+    distortion: clamp01(e * 0.28 + control * 0.35 + sources.audio.current * 0.12),
+    symbolComplexity: 0.12 + e * 0.45,
+    rareEventRate: clamp01(e * 0.12 + preset * 0.2 + noteBloom * 0.08),
+    growthRate: 0.2 + e * 0.45 + noteBloom * 0.12 + sources.touch.current * 0.06,
+    decayRate: clamp01(0.94 - e * 0.2 - noteBloom * 0.08),
   };
 }
 
