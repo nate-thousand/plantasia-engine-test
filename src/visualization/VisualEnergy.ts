@@ -1,3 +1,4 @@
+import { VISUAL_DENSITY_SCALE } from './visualConstants';
 import {
   AMBIENT_PLAY,
   CONTROLS_ACTIVE_FLOOR,
@@ -9,8 +10,7 @@ import type { AudioVizFeedback } from '../audio/visualization/AudioTap';
 import type { ActiveNoteState } from '../stores/engineStore';
 import type { VizAccessibility } from './types';
 
-/** Global visualization density multiplier (1 = design default). */
-export const VISUAL_DENSITY_SCALE = 0.8;
+export { VISUAL_DENSITY_SCALE } from './visualConstants';
 
 /** Sparse idle baseline — shape coverage, not wallpaper density (13F). */
 export const SPARSE_IDLE_DENSITY = 0.08 * VISUAL_DENSITY_SCALE;

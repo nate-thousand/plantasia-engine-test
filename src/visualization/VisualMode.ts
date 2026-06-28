@@ -1,5 +1,5 @@
 import type { VisualEnergyFrameInput } from './VisualEnergy';
-import { VISUAL_DENSITY_SCALE } from './VisualEnergy';
+import { VISUAL_DENSITY_SCALE } from './visualConstants';
 import type { VisualEnergyBehavior } from './types';
 
 /** Home default — almost empty, slow ambient only. */

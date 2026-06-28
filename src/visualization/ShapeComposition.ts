@@ -2,7 +2,7 @@
  * Milestone 13F — shape-based composition, density limits, symbol palettes.
  */
 import type { ExperientialMode } from './VisualMode';
-import { VISUAL_DENSITY_SCALE } from './VisualEnergy';
+import { VISUAL_DENSITY_SCALE } from './visualConstants';
 import { getChoreographyForTheme } from './PresetChoreography';
 import type { PresetTheme } from './types';
 

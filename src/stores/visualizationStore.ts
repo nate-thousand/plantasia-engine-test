@@ -1,5 +1,5 @@
 import type { VizAccessibility } from '../visualization/types';
-import { VISUAL_DENSITY_SCALE } from '../visualization/VisualEnergy';
+import { VISUAL_DENSITY_SCALE } from '../visualization/visualConstants';
 
 const STORAGE_KEY = 'plantasia-viz-accessibility';
 

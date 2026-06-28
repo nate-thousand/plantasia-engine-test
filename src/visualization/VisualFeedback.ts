@@ -1,9 +1,9 @@
 import {
   SPARSE_IDLE_DENSITY,
   PEAK_REACTIVE_DENSITY,
-  VISUAL_DENSITY_SCALE,
   densityFromVisualEnergy,
 } from './VisualEnergy';
+import { VISUAL_DENSITY_SCALE } from './visualConstants';
 
 /** @deprecated use SPARSE_IDLE_DENSITY — kept for imports that expect AMBIENT_ASCII_SCALE */
 export const AMBIENT_ASCII_SCALE = SPARSE_IDLE_DENSITY;

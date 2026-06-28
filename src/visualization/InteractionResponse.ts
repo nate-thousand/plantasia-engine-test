@@ -3,7 +3,8 @@
  * Amplifies visuals only during interaction; idle stays sparse.
  */
 import type { EnergySourceKey, SourceEnergyMap, VisualEnergyBehavior, VisualEnergyFrameInput } from './VisualEnergy';
-import { PEAK_REACTIVE_DENSITY, VISUAL_DENSITY_SCALE } from './VisualEnergy';
+import { PEAK_REACTIVE_DENSITY } from './VisualEnergy';
+import { VISUAL_DENSITY_SCALE } from './visualConstants';
 
 export type ResponseProfile = 'subtle' | 'normal' | 'extreme';
 
