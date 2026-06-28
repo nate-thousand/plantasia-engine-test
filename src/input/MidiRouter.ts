@@ -8,6 +8,7 @@ import {
   logUnknownPad,
   patchMidiStore,
   pulseInteractionBurst,
+  pulseScreenFeedback,
   recordCcDetection,
   recordMidiMessage,
   setChannelPressure,
@@ -115,7 +116,7 @@ function executePadAction(action: MidiPadAction, velocity: number): void {
     case 'textureBurst':
     case 'growthBurst':
     case 'driftBurst':
-    case 'volumeBoost':
+    case 'moldBoost':
     case 'reverbBurst':
     case 'chorusBurst':
       pulseInteractionBurst(Math.round((velocity / 127) * 35));
@@ -183,7 +184,8 @@ function handleNoteOn(
 
   try {
     engineAdapter.noteOn(note, velocity);
-    registerNoteOn(note, velocity);
+    registerNoteOn(note, velocity, 'midi');
+    pulseScreenFeedback(velocity, 'padHit');
     recordMidiMessage(`Note ch${channel + 1} ${note} v${velocity}`);
   } catch (error) {
     console.error('[Plantasia MIDI] Note on failed:', error);
@@ -197,6 +199,7 @@ function handleNoteOff(note: number, channel: number): void {
 
   engineAdapter.noteOff(note);
   registerNoteOff(note);
+  pulseScreenFeedback(50, 'padHit');
   recordMidiMessage(`Note Off ch${channel + 1} ${note}`);
 }
 
@@ -260,6 +263,7 @@ function handlePitchBend(value: number): void {
   const normalized = pitchBendNormalized(value);
   setPitchBend(normalized);
   recordMidiMessage(`Pitch ${normalized.toFixed(2)}`);
+  engineAdapter.applyPitchBend(normalized);
 
   const now = performance.now();
   if (Math.abs(normalized) > 0.08 && now - lastPitchEffectAt > 80) {
@@ -275,6 +279,7 @@ function handleChannelPressure(pressure: number, channel: number): void {
 
   setChannelPressure(pressure);
   recordMidiMessage(`Pressure ${pressure}`);
+  engineAdapter.applyChannelPressure(pressure);
   if (pressure > 20) {
     triggerMidiVisualEffect('padHit', pressure, 'aftertouch');
     pulseInteractionBurst(Math.round((pressure / 127) * 25));

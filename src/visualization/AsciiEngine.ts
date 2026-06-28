@@ -8,7 +8,6 @@ import { createNoteSpawnEvent } from './NoteEvents';
 import { ParticleSystem } from './ParticleSystem';
 import {
   themeMidiEffectChar,
-  themeMidiParticleCount,
   themePitchSpread,
   type MidiVisualEffectKind,
 } from './ThemeMidiEffects';
@@ -32,10 +31,12 @@ import {
   spawnPlant,
   updatePlant,
 } from './PlantGenerator';
-import { resolvePresetTheme } from './PresetThemes';
+import { findPresetById } from '../presets/engineRegistry';
+import { fallbackTheme, resolvePresetTheme } from './PresetThemes';
 import { buildSoundVizParams } from './SoundMapping';
 import { ThemeTransition } from './ThemeTransition';
-import { FEEDBACK_GAIN } from './VisualFeedback';
+import { densityFromVisualEnergy } from './VisualEnergy';
+import { FEEDBACK_GAIN, maxParticleCount } from './VisualFeedback';
 import type {
   PlantInstance,
   PresetTheme,
@@ -71,17 +72,18 @@ export class AsciiEngine {
   private lastModWheel = 64;
   private lastChannelPressure = 0;
   private titlePulse = 0;
+  private simFrame = 0;
 
   constructor(options: AsciiEngineOptions) {
     this.renderer = new AsciiRenderer(options.initialDimensions);
-    this.particles = new ParticleSystem(Math.round(120 + options.accessibility.density * 2.5 * FEEDBACK_GAIN));
+    this.particles = new ParticleSystem(maxParticleCount(options.accessibility.density));
     this.accessibility = options.accessibility;
-    const initialTheme = resolvePresetTheme('seed', 'Seed');
+    const initialTheme = fallbackTheme();
     this.themeTransition = new ThemeTransition(initialTheme);
     this.sound = buildSoundVizParams(
-      { volume: 72, tone: 50, texture: 40, bloom: 35 },
+      { mold: 12, tone: 50, texture: 40, bloom: 35 },
       { growthRate: 45, drift: 30, mutation: 20, energy: 55 },
-      'seed',
+      findPresetById('seed') ?? null,
       initialTheme,
     );
   }
@@ -97,7 +99,7 @@ export class AsciiEngine {
 
   setAccessibility(accessibility: VizAccessibility): void {
     this.accessibility = accessibility;
-    this.particles = new ParticleSystem(Math.round(120 + accessibility.density * 2.5 * FEEDBACK_GAIN));
+    this.particles = new ParticleSystem(maxParticleCount(accessibility.density));
   }
 
   get dimensions(): GridDimensions {
@@ -106,11 +108,14 @@ export class AsciiEngine {
 
   tick(snapshot: VizInputSnapshot, deltaMs: number): string {
     const dt = this.accessibility.reduceMotion
-      ? Math.min(deltaMs / 1000, 1 / 30) * (this.accessibility.animationSpeed / 100)
-      : Math.min(deltaMs / 1000, 1 / 30) * (this.accessibility.animationSpeed / 50);
+      ? Math.min(deltaMs / 1000, 1 / 24) * (this.accessibility.animationSpeed / 100)
+      : Math.min(deltaMs / 1000, 1 / 24) * (this.accessibility.animationSpeed / 62);
 
     this.elapsed += dt;
     this.dormant = !snapshot.audioReady;
+    this.simFrame += 1;
+
+    const sliders = buildSliderVizState(snapshot.sound, snapshot.modulation);
 
     const themeChanged = this.themeTransition.setTarget(snapshot.presetId, snapshot.presetName);
     this.themeTransition.advance(dt);
@@ -130,17 +135,18 @@ export class AsciiEngine {
     const baseSound = buildSoundVizParams(
       snapshot.sound,
       snapshot.modulation,
-      snapshot.presetId,
+      snapshot.activePreset,
       theme,
     );
     this.sound = applyAudioFeedback(baseSound, snapshot.audio);
 
     this.syncPlants(snapshot, theme);
     this.applyInteractionFeedback(snapshot, theme);
+    this.applyPointerFeedback(snapshot, theme);
     this.applySliderChangeBursts(snapshot, theme);
-    this.updateSimulation(dt, snapshot, theme);
+    this.updateSimulation(dt, snapshot, theme, sliders);
     this.applyMidiVisualEffects(snapshot, theme);
-    return this.renderFrame(snapshot, theme);
+    return this.renderFrame(snapshot, theme, sliders);
   }
 
   reset(): void {
@@ -155,6 +161,47 @@ export class AsciiEngine {
     this.titlePulse = 0;
   }
 
+  /** Clear note-driven state but keep idle scene timing when audio stops. */
+  softReset(): void {
+    this.plants.clear();
+    this.particles.clear();
+    resetPlantGenerator();
+    this.lastActiveMidis.clear();
+    this.lastPeak = 0;
+  }
+
+  private applyPointerFeedback(snapshot: VizInputSnapshot, theme: PresetTheme): void {
+    const { pointer, energy } = snapshot;
+    const visualEnergy = energy.visualEnergy;
+    if (pointer.activity < 0.04 && !pointer.active) {
+      return;
+    }
+
+    const { width, height } = this.renderer;
+    const x = Math.max(0, Math.min(width - 1, pointer.gridX));
+    const y = Math.max(0, Math.min(height - 1, pointer.gridY));
+    const touchBoost = pointer.isTouch ? 1.35 : 1;
+    const intensity = Math.round(
+      (40 + pointer.activity * 87 + visualEnergy * 40) * touchBoost,
+    );
+
+    if (pointer.active || pointer.activity > 0.08) {
+      this.particles.spawnInteractionFlare(x, y, intensity, theme, width, height);
+    }
+
+    if (pointer.activity > 0.15 && this.simFrame % 2 === 0) {
+      this.particles.spawnSpores(
+        x,
+        y,
+        Math.round(2 + pointer.activity * 8 * FEEDBACK_GAIN * 0.15),
+        theme,
+        intensity,
+      );
+    }
+
+    this.titlePulse = Math.max(this.titlePulse, Math.round(pointer.activity * 90));
+  }
+
   private applyInteractionFeedback(snapshot: VizInputSnapshot, theme: PresetTheme): void {
     const { width, height } = this.renderer;
     const cx = Math.round(width / 2);
@@ -166,10 +213,29 @@ export class AsciiEngine {
         const plant = this.plants.get(note.midi);
         const x = plant?.x ?? Math.round((note.midi - 36) / 88 * width);
         const y = plant?.y ?? Math.round(height * 0.6);
-        const burst = Math.round((3 + note.velocity / 12) * FEEDBACK_GAIN);
-        this.particles.spawnSpores(x, y, burst, theme, note.velocity);
-        this.particles.spawnEchoSeeds(x, y, this.sound.delayWet * 1.5, theme);
-        this.titlePulse = Math.max(this.titlePulse, Math.round(note.velocity * 0.6));
+        for (let layer = 0; layer < 2; layer += 1) {
+          this.particles.spawnInteractionFlare(
+            x + layer * 2 - 1,
+            y - layer,
+            note.velocity,
+            theme,
+            width,
+            height,
+          );
+        }
+        this.particles.spawnEchoSeeds(x, y, Math.max(0.2, this.sound.delayWet), theme);
+        this.titlePulse = 127;
+      } else if (this.simFrame % 2 === 0) {
+        const plant = this.plants.get(note.midi);
+        const x = plant?.x ?? Math.round((note.midi - 36) / 88 * width);
+        const y = plant?.y ?? Math.round(height * 0.6);
+        this.particles.spawnSpores(
+          x,
+          y,
+          Math.round(3 + note.velocity / 20),
+          theme,
+          note.velocity,
+        );
       }
     }
 
@@ -177,43 +243,52 @@ export class AsciiEngine {
 
     if (snapshot.controlHighlightTick > this.lastHighlightTick) {
       this.lastHighlightTick = snapshot.controlHighlightTick;
-      const burst = Math.round(8 * FEEDBACK_GAIN);
-      this.particles.spawnSpores(cx, cy, burst, theme, 100);
-      this.particles.spawnReverbSpores(width, height, 0.5, theme);
-      this.titlePulse = Math.max(this.titlePulse, 90);
+      this.particles.spawnInteractionFlare(cx, cy, 127, theme, width, height);
+      this.titlePulse = Math.max(this.titlePulse, 127);
     }
 
     const modDelta = Math.abs(snapshot.modWheel - this.lastModWheel);
-    if (modDelta >= 2) {
-      this.particles.spawnWindParticles(width, height, this.sound, theme);
-      this.particles.spawnSpores(
-        cx,
+    if (modDelta >= 1) {
+      this.particles.spawnInteractionFlare(
+        cx + Math.round((snapshot.modWheel - 64) * 0.08),
         cy,
-        Math.round((modDelta / 8) * FEEDBACK_GAIN),
+        Math.min(127, 40 + modDelta * 3),
         theme,
-        snapshot.modWheel,
+        width,
+        height,
       );
-      this.titlePulse = Math.max(this.titlePulse, Math.round(modDelta * 0.5));
+      this.titlePulse = Math.max(this.titlePulse, Math.min(127, Math.round(modDelta * 2.5)));
       this.lastModWheel = snapshot.modWheel;
     }
 
-    const pressureDelta = snapshot.channelPressure - this.lastChannelPressure;
-    if (pressureDelta >= 4) {
-      this.particles.spawnSpores(
+    const pressureDelta = Math.abs(snapshot.channelPressure - this.lastChannelPressure);
+    if (pressureDelta >= 2) {
+      this.particles.spawnInteractionFlare(
         cx,
         cy,
-        Math.round((pressureDelta / 6) * FEEDBACK_GAIN),
+        Math.min(127, 35 + pressureDelta * 2),
         theme,
-        snapshot.channelPressure,
+        width,
+        height,
       );
       this.titlePulse = Math.max(this.titlePulse, snapshot.channelPressure);
       this.lastChannelPressure = snapshot.channelPressure;
-    } else if (snapshot.channelPressure < this.lastChannelPressure) {
-      this.lastChannelPressure = snapshot.channelPressure;
+    }
+
+    if (Math.abs(snapshot.pitchBend) > 0.02 && this.simFrame % 2 === 0) {
+      const bendX = cx + Math.round(snapshot.pitchBend * width * 0.35);
+      this.particles.spawnInteractionFlare(
+        bendX,
+        cy,
+        Math.round(Math.abs(snapshot.pitchBend) * 127),
+        theme,
+        width,
+        height,
+      );
     }
 
     if (this.titlePulse > 0) {
-      this.titlePulse = Math.max(0, this.titlePulse - 3);
+      this.titlePulse = Math.max(0, this.titlePulse - 0.6);
     }
   }
 
@@ -229,46 +304,64 @@ export class AsciiEngine {
     const cx = Math.round(width / 2);
     const cy = Math.round(height / 2);
 
-    const count = themeMidiParticleCount(theme, kind, intensity);
-
     switch (kind) {
+      case 'play':
+      case 'stop':
+        this.particles.spawnInteractionFlare(cx, cy, intensity, theme, width, height);
+        this.particles.spawnReverbSpores(width, height, 0.75, theme);
+        break;
       case 'pitchBend': {
         const spread = themePitchSpread(theme, snapshot.pitchBend);
-        this.particles.spawnSpores(
+        this.particles.spawnInteractionFlare(
           cx + Math.round(spread * width),
           cy,
-          count,
-          theme,
           intensity,
+          theme,
+          width,
+          height,
         );
         break;
       }
       case 'presetChange':
-        this.particles.spawnSpores(cx, cy, count, theme, intensity);
-        this.particles.spawnReverbSpores(width, height, 0.6, theme);
+        this.particles.spawnInteractionFlare(cx, cy, intensity, theme, width, height);
+        this.particles.spawnReverbSpores(width, height, 0.85, theme);
+        for (let i = 0; i < 3; i += 1) {
+          this.particles.spawnWindParticles(width, height, this.sound, theme);
+        }
         break;
       case 'knobTwist':
         for (const plant of this.plants.values()) {
-          this.particles.spawnSpores(plant.x, plant.y, Math.max(1, Math.round(count / 2)), theme, intensity);
+          this.particles.spawnInteractionFlare(
+            plant.x,
+            plant.y,
+            Math.min(127, intensity + 20),
+            theme,
+            width,
+            height,
+          );
         }
         if (this.plants.size === 0) {
-          this.particles.spawnSpores(cx, cy, count, theme, intensity);
+          this.particles.spawnInteractionFlare(cx, cy, intensity, theme, width, height);
         }
         break;
       default:
-        this.particles.spawnSpores(cx, cy, count, theme, intensity);
+        this.particles.spawnInteractionFlare(cx, cy, intensity, theme, width, height);
         if (kind === 'reverbBurst' || kind === 'chorusBurst') {
           this.particles.spawnReverbSpores(width, height, intensity / 127, theme);
         }
     }
 
-    if (intensity > 20) {
+    if (intensity > 8) {
       const accent = themeMidiEffectChar(theme, kind, snapshot.midiEffectTick);
-      this.renderer.setChar(cx, cy, accent, 8);
-      const ring = Math.round((intensity / 127) * 4 * FEEDBACK_GAIN);
+      this.renderer.setChar(cx, cy, accent, 9);
+      const ring = Math.round((intensity / 127) * 10 * FEEDBACK_GAIN);
       for (let i = -ring; i <= ring; i += 1) {
-        this.renderer.setChar(cx + i, cy, accent, 7);
-        this.renderer.setChar(cx, cy + i, accent, 7);
+        this.renderer.setChar(cx + i, cy, accent, 8);
+        this.renderer.setChar(cx, cy + i, accent, 8);
+        if (Math.abs(i) % 2 === 0) {
+          this.renderer.setChar(cx + i, cy + i, accent, 7);
+          this.renderer.setChar(cx + i, cy - i, accent, 7);
+        }
       }
     }
   }
@@ -288,8 +381,17 @@ export class AsciiEngine {
 
     for (const change of changes) {
       const count = sliderChangeBurstCount(change.key, change.value, change.delta);
+      this.particles.spawnInteractionFlare(
+        cx,
+        cy,
+        Math.min(127, Math.round(change.value * 127 + Math.abs(change.delta) * 80)),
+        theme,
+        width,
+        height,
+      );
       this.particles.spawnSpores(cx, cy, count, theme, Math.round(change.value * 127));
       this.spawnSliderKeyedParticles(change.key, change.value, width, height, theme);
+      this.titlePulse = Math.max(this.titlePulse, 90);
     }
   }
 
@@ -306,33 +408,29 @@ export class AsciiEngine {
     const ground = height - 2;
 
     switch (key) {
-      case 'volume':
-        this.particles.spawnSpores(cx, ground, Math.round((2 + value * 6) * FEEDBACK_GAIN), theme, intensity);
+      case 'mold':
+        this.particles.spawnSpores(cx, ground, Math.round(2 + value * 3), theme, intensity);
         break;
       case 'tone':
-        this.particles.spawnSpores(cx, 2, Math.round((2 + value * 5) * FEEDBACK_GAIN), theme, intensity);
+        this.particles.spawnSpores(cx, 2, Math.round(2 + value * 2), theme, intensity);
         break;
       case 'texture':
-        this.particles.spawnSpores(Math.round(width * 0.25), cy, Math.round((2 + value * 4) * FEEDBACK_GAIN), theme, intensity);
-        this.particles.spawnSpores(Math.round(width * 0.75), cy, Math.round((2 + value * 4) * FEEDBACK_GAIN), theme, intensity);
+        this.particles.spawnSpores(Math.round(width * 0.25), cy, Math.round(2 + value * 2), theme, intensity);
         break;
       case 'bloom':
-        this.particles.spawnReverbSpores(width, height, value * 0.8 * FEEDBACK_GAIN, theme);
+        this.particles.spawnReverbSpores(width, height, value * 0.45, theme);
         break;
       case 'growthRate':
-        this.particles.spawnEchoSeeds(cx, ground, value * 0.7 * FEEDBACK_GAIN, theme);
+        this.particles.spawnEchoSeeds(cx, ground, value * 0.45, theme);
         break;
       case 'drift':
-        for (let i = 0; i < FEEDBACK_GAIN; i += 1) {
-          this.particles.spawnWindParticles(width, height, this.sound, theme);
-        }
+        this.particles.spawnWindParticles(width, height, this.sound, theme);
         break;
       case 'mutation':
         this.particles.spawnDistortionArtifacts(cx, cy, { ...this.sound, distortion: value }, theme);
-        this.particles.spawnDistortionArtifacts(cx, cy, { ...this.sound, distortion: value }, theme);
         break;
       case 'energy':
-        this.particles.spawnSpores(cx, cy, Math.round((3 + value * 10) * FEEDBACK_GAIN), theme, intensity);
+        this.particles.spawnSpores(cx, cy, Math.round(2 + value * 5), theme, intensity);
         break;
       default:
         break;
@@ -361,10 +459,12 @@ export class AsciiEngine {
         this.plants.set(note.midi, plant);
 
         const sporeCount = Math.round(
-          (2 + note.velocity / 12) * particleRate * (0.5 + theme.rhythm) * FEEDBACK_GAIN,
+          (2 + note.velocity / 8) * particleRate * (0.65 + theme.rhythm * 0.85) * (FEEDBACK_GAIN / 4),
         );
         this.particles.spawnSpores(plant.x, plant.y, sporeCount, theme, note.velocity);
-        this.particles.spawnEchoSeeds(plant.x, plant.y, this.sound.delayWet, theme);
+        if (this.sound.delayWet > 0.06) {
+          this.particles.spawnEchoSeeds(plant.x, plant.y, this.sound.delayWet, theme);
+        }
       } else {
         const plant = this.plants.get(note.midi);
         if (plant) {
@@ -376,12 +476,12 @@ export class AsciiEngine {
     for (const [midi, plant] of this.plants) {
       if (!activeMidis.has(midi) && plant.phase !== 'releasing' && plant.phase !== 'faded') {
         releasePlant(plant);
-        const leafCount = Math.round((2 + this.sound.release) * (1 + audio.amplitude * 3) * FEEDBACK_GAIN);
+        const leafCount = Math.round((1 + this.sound.release * 0.5) * (1 + audio.amplitude * 1.5));
         this.particles.spawnFallingLeaves(plant.x, plant.y, leafCount, theme);
         this.particles.spawnSpores(
           plant.x,
           plant.y,
-          Math.round(this.sound.reverbWet * 8 * particleRate * FEEDBACK_GAIN),
+          Math.round(this.sound.reverbWet * 4 * particleRate),
           theme,
           80,
         );
@@ -389,13 +489,18 @@ export class AsciiEngine {
     }
   }
 
-  private updateSimulation(dt: number, snapshot: VizInputSnapshot, theme: PresetTheme): void {
+  private updateSimulation(
+    dt: number,
+    snapshot: VizInputSnapshot,
+    theme: PresetTheme,
+    sliders: SliderVizState,
+  ): void {
     const { width, height } = this.renderer;
     const { audio } = snapshot;
     const particleRate = audioParticleRate(audio);
 
     for (const plant of this.plants.values()) {
-      const growthBoost = 1 + audio.amplitude * 2.5 * FEEDBACK_GAIN + audio.peak * FEEDBACK_GAIN;
+      const growthBoost = 1 + audio.amplitude * 1.2 + audio.peak * 0.6;
       updatePlant(
         plant,
         dt * growthBoost,
@@ -404,13 +509,14 @@ export class AsciiEngine {
         width,
         height,
         this.accessibility.reduceMotion,
+        audio,
       );
       plant.brightness = Math.min(
         1,
         plant.brightness * 0.85 + noteAudioIntensity(plant.velocity, audio) * 0.15,
       );
 
-      if (this.sound.distortion > 0.2) {
+      if (this.sound.distortion > 0.35 && Math.random() < 0.08) {
         this.particles.spawnDistortionArtifacts(plant.x, plant.y, this.sound, theme);
       }
     }
@@ -422,37 +528,39 @@ export class AsciiEngine {
     }
 
     if (!this.dormant) {
-      const sliders = buildSliderVizState(snapshot.sound, snapshot.modulation);
       const ambientRate = sliderAmbientParticleRate(sliders);
+      const { visualEnergy } = snapshot.energy;
+      const { rareEventRate, spread } = snapshot.energyBehavior;
+      const asciiScale = densityFromVisualEnergy(visualEnergy);
 
-      if (Math.random() < 0.25 * particleRate * theme.density * ambientRate * FEEDBACK_GAIN) {
+      if (Math.random() < 0.08 * particleRate * theme.density * ambientRate * asciiScale) {
         this.particles.spawnWindParticles(width, height, this.sound, theme);
       }
-      if (Math.random() < this.sound.reverbWet * particleRate * 0.5 * (0.5 + sliders.bloom) * FEEDBACK_GAIN) {
+      if (Math.random() < this.sound.reverbWet * particleRate * 0.12 * (0.5 + sliders.bloom) * asciiScale) {
         this.particles.spawnReverbSpores(width, height, this.sound.reverbWet, theme);
       }
 
-      if (Math.random() < sliders.energy * 0.08 * ambientRate * FEEDBACK_GAIN) {
+      if (Math.random() < sliders.energy * 0.025 * ambientRate * asciiScale) {
         this.particles.spawnSpores(
           Math.round(width / 2),
           Math.round(height / 2),
-          Math.round((1 + sliders.energy * 4) * FEEDBACK_GAIN),
+          Math.round(1 + sliders.energy * 2),
           theme,
           Math.round(sliders.energy * 127),
         );
       }
 
-      if (Math.random() < sliders.texture * 0.06 * FEEDBACK_GAIN) {
+      if (Math.random() < sliders.texture * 0.02 * asciiScale) {
         this.particles.spawnSpores(
           Math.round(Math.random() * width),
           Math.round(Math.random() * height),
-          Math.round(2 * FEEDBACK_GAIN),
+          1,
           theme,
           Math.round(sliders.texture * 100),
         );
       }
 
-      if (sliders.mutation > 0.25 && Math.random() < sliders.mutation * 0.05 * FEEDBACK_GAIN) {
+      if (sliders.mutation > 0.35 && Math.random() < sliders.mutation * 0.015 * asciiScale) {
         this.particles.spawnDistortionArtifacts(
           Math.round(Math.random() * width),
           Math.round(Math.random() * height),
@@ -461,13 +569,13 @@ export class AsciiEngine {
         );
       }
 
-      if (audio.isActive) {
+      if (audio.isActive && this.plants.size <= 6) {
         for (const plant of this.plants.values()) {
-          if (Math.random() < audio.amplitude * 0.4 * theme.rhythm * FEEDBACK_GAIN) {
+          if (Math.random() < audio.amplitude * 0.12 * theme.rhythm) {
             this.particles.spawnSpores(
               plant.x,
               plant.y,
-              Math.round((1 + audio.peak * 4) * FEEDBACK_GAIN),
+              Math.round(1 + audio.peak * 2),
               theme,
               Math.round(audio.peak * 127),
             );
@@ -475,32 +583,69 @@ export class AsciiEngine {
         }
       }
 
-      if (audio.peak > this.lastPeak + 0.05) {
+      if (audio.peak > this.lastPeak + 0.08) {
         this.particles.spawnSpores(
           Math.round(width / 2),
           Math.round(height / 2),
-          Math.round((3 + audio.peak * 8) * FEEDBACK_GAIN),
+          Math.round(2 + audio.peak * 4),
           theme,
           Math.round(audio.peak * 127),
         );
       }
       this.lastPeak = audio.peak;
 
-      if (snapshot.interactionBoost > 0 && Math.random() < snapshot.interactionBoost / 24) {
-        this.particles.spawnSpores(
-          Math.round(width / 2),
-          Math.round(height / 2),
-          Math.round(4 * FEEDBACK_GAIN),
-          theme,
-          snapshot.interactionBoost,
+      if (snapshot.interactionBoost > 0 || visualEnergy > 0.12) {
+        const layers = Math.max(
+          1,
+          Math.ceil((snapshot.interactionBoost / 15) * (1 + visualEnergy) * spread),
         );
+        for (let i = 0; i < layers; i += 1) {
+          const px = Math.round(Math.random() * width);
+          const py = Math.round(Math.random() * height);
+          this.particles.spawnInteractionFlare(
+            px,
+            py,
+            snapshot.interactionBoost,
+            theme,
+            width,
+            height,
+          );
+        }
+        for (let i = 0; i < layers; i += 1) {
+          this.particles.spawnWindParticles(width, height, this.sound, theme);
+          this.particles.spawnReverbSpores(width, height, 0.7, theme, true);
+        }
+      }
+      if (Math.random() < rareEventRate * asciiScale * 0.15) {
+        this.particles.spawnInteractionFlare(
+          Math.round(Math.random() * width),
+          Math.round(Math.random() * height),
+          Math.round(visualEnergy * 127),
+          theme,
+          width,
+          height,
+        );
+      }
+    } else {
+      const { visualEnergy } = snapshot.energy;
+      const asciiScale = densityFromVisualEnergy(visualEnergy);
+      const { rareEventRate } = snapshot.energyBehavior;
+      if (visualEnergy > 0.06 && Math.random() < (0.04 + rareEventRate * 0.08) * asciiScale * theme.density) {
+        const px = snapshot.pointer.active
+          ? snapshot.pointer.gridX
+          : Math.round(Math.random() * width);
+        const py = snapshot.pointer.active
+          ? snapshot.pointer.gridY
+          : Math.round(Math.random() * height);
+        this.particles.spawnSpores(px, py, 1, theme, Math.round(visualEnergy * 80));
       }
     }
 
     this.particles.update(
       dt *
-        (1 + audio.amplitude * 2 * FEEDBACK_GAIN) *
-        (1 + buildSliderVizState(snapshot.sound, snapshot.modulation).energy * 0.5 * FEEDBACK_GAIN),
+        snapshot.energyBehavior.speed *
+        (1 + audio.amplitude * 0.8) *
+        (1 + sliders.energy * 0.25),
       width,
       height,
       this.sound,
@@ -509,31 +654,63 @@ export class AsciiEngine {
     );
   }
 
-  private renderFrame(snapshot: VizInputSnapshot, theme: PresetTheme): string {
+  private renderFrame(
+    snapshot: VizInputSnapshot,
+    theme: PresetTheme,
+    sliders: SliderVizState,
+  ): string {
     const { audio, time } = snapshot;
     this.renderer.clear();
 
-    const sceneTheme = resolvePresetTheme(snapshot.presetId, snapshot.presetName);
-    const sliders = buildSliderVizState(snapshot.sound, snapshot.modulation);
+    const sceneTheme = snapshot.activePreset
+      ? resolvePresetTheme(snapshot.activePreset, snapshot.category)
+      : resolvePresetTheme(snapshot.presetId, snapshot.presetName);
     const sceneBoost = sliderSceneIntensity(sliders);
-    const energy = sceneBoost.energy;
-    const amplitude = this.dormant ? 0.05 + sliders.volume * 0.15 : sceneBoost.amplitude + audio.amplitude * 0.5;
-
     const interactionPulse = Math.max(snapshot.interactionBoost, this.titlePulse);
+    const { energy, energyBehavior } = snapshot;
+    const visualEnergy = energy.visualEnergy;
+    const asciiScale = energyBehavior.density;
+    const motionScale = energyBehavior.speed;
+    const energyLevel = sceneBoost.energy * asciiScale;
+    const amplitude = this.dormant
+      ? 0.04 + sliders.mold * 0.08 * asciiScale
+      : (sceneBoost.amplitude + snapshot.audio.amplitude * 0.45) * asciiScale * energyBehavior.brightness;
 
     this.renderer.paintBotanicalScene(
       sceneTheme,
-      this.elapsed * sceneBoost.animSpeed,
-      energy,
+      this.elapsed * sceneBoost.animSpeed * motionScale,
+      energyLevel,
       amplitude,
-      sceneBoost.animSpeed,
+      sceneBoost.animSpeed * motionScale,
       sliders,
       interactionPulse,
+      visualEnergy,
+      snapshot.pointer,
+      energyBehavior,
     );
+
+    if (interactionPulse > 3) {
+      this.renderer.paintInteractionOverlays(sceneTheme, time, interactionPulse, energyBehavior);
+    }
+
+    if (snapshot.presetTransition > 0.05 || energy.sources.preset.current > 0.08) {
+      this.renderer.paintPresetTransition(
+        sceneTheme,
+        time,
+        Math.max(snapshot.presetTransition, energy.sources.preset.current),
+        energyBehavior,
+      );
+    }
 
     const groundY = this.renderer.height - 2;
 
     if (this.dormant) {
+      if (visualEnergy > 0.04) {
+        this.renderer.paintParticles(
+          this.particles.list(),
+          6 + Math.round(visualEnergy * 10 * energyBehavior.spread + interactionPulse / 12),
+        );
+      }
       return this.renderer.toString();
     }
 
@@ -549,9 +726,11 @@ export class AsciiEngine {
     }
 
     const spectrumGain = sliderSpectrumGain(sliders, audio.amplitude);
-    this.renderer.paintSpectrumColumns(audio.spectrum, groundY - 1, spectrumGain, theme);
+    if (audio.isActive && spectrumGain > 0.04) {
+      this.renderer.paintSpectrumColumns(audio.spectrum, groundY - 1, spectrumGain, theme);
+    }
 
-    if (audio.isActive || sliders.volume > 0.2) {
+    if (audio.isActive && spectrumGain > 0.06) {
       this.renderer.paintWaveform(
         audio.waveform,
         Math.floor(this.renderer.height * waveformY(theme)),
@@ -560,16 +739,17 @@ export class AsciiEngine {
       );
     }
 
+    const plantCount = this.plants.size;
     for (const plant of this.plants.values()) {
       const segments = drawPlantSegments(plant, this.sound, audio, theme);
       this.renderer.paintSegments(segments, 6);
 
-      if (audio.isActive) {
+      if (audio.isActive && plantCount <= 4 && audio.amplitude > 0.12) {
         this.renderer.paintAmplitudeHalo(
           Math.round(plant.x),
           Math.round(plant.y),
-          2 + Math.round(audio.amplitude * 4 * FEEDBACK_GAIN),
-          plant.brightness * (0.5 + audio.amplitude * FEEDBACK_GAIN),
+          2 + Math.round(audio.amplitude * 2),
+          plant.brightness * (0.5 + audio.amplitude * 0.6),
           theme,
         );
       }
@@ -577,7 +757,9 @@ export class AsciiEngine {
 
     this.renderer.paintParticles(
       this.particles.list(),
-      4 + Math.round((audio.amplitude * 3 + sliders.energy * 5 + sliders.bloom * 3) * FEEDBACK_GAIN),
+      8 + Math.round(
+        audio.amplitude * 6 + sliders.energy * 6 + sliders.bloom * 5 + interactionPulse / 10,
+      ),
     );
 
     return this.renderer.toString();

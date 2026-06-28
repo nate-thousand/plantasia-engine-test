@@ -9,6 +9,7 @@ type ControlSliderProps = {
   highlighted?: boolean;
   learnActive?: boolean;
   onSelectLearn?: () => void;
+  title?: string;
 };
 
 export function ControlSlider({
@@ -22,9 +23,11 @@ export function ControlSlider({
   highlighted = false,
   learnActive = false,
   onSelectLearn,
+  title,
 }: ControlSliderProps) {
   return (
     <label
+      title={title}
       className={`control-slider${placeholder ? ' control-slider--placeholder' : ''}${
         disabled ? ' control-slider--disabled' : ''
       }${highlighted ? ' control-slider--active control-slider--midi' : ''}${learnActive ? ' control-slider--learn' : ''}`}

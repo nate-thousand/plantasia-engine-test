@@ -92,6 +92,47 @@ No component-level Bootstrap customization in the foundation phase.
 | `docs/design/` | Design token and layout documentation |
 | `docs/engineering/` | Workflow and integration guides |
 
+## Preset Synchronization
+
+Changing a preset triggers a single activation chain — every subsystem updates together:
+
+```
+PresetControls / MIDI program change
+        ↓
+loadPresetAtIndex()
+  ├→ stopAllNotes() + clearActiveNotes()
+  ├→ engine.playPreset() — chord preview (Plantasonic / Juno / standard)
+  ├→ LiveVoiceRouter.preparePreset() — live keyboard/MIDI graph
+  ├→ getPresetControls() — sliders from preset controls block
+  ├→ setControlSurface() + engineAdapter.applyControlSurface()
+  └→ presetStore.setActivePresetIndex()
+        ↓
+useAsciiVisualization → AsciiEngine (theme reset + crossfade)
+```
+
+| Live voice mode | Trigger | Graph |
+|-----------------|---------|-------|
+| `plantasonic` | `preset.plantasonic != null` | Plantasonic flagship Web Audio graph |
+| `juno` | `preset.botanical != null` | Juno Flowers botanical graph |
+| `standard` | all other presets | Tone.js PolySynth mirror |
+
+Control defaults come from each preset's `controls` block via engine `getPresetControls()`.
+
+See [PRESETS.md](./PRESETS.md) for the Sound World metadata schema and extension guide.
+
+## Sound World Metadata Flow
+
+```
+preset JSON (visual, controls, midi, tags)
+        ↓
+buildPresetMetadata() → presetStore.activeMetadata
+        ↓
+├→ getPresetControls() → UI sliders + engine
+├→ getPresetVisualTheme() → AsciiEngine themes + scenes
+├→ applyPresetMidiDefaults() → midiStore
+└→ ThemeReactiveBehavior → plant growth multipliers
+```
+
 ## Visual Pipeline (Milestone 9)
 
 Note-driven ASCII rendering follows a strict data flow — React never hardcodes organism artwork.
@@ -100,7 +141,7 @@ Note-driven ASCII rendering follows a strict data flow — React never hardcodes
 Keyboard / MIDI / Sliders / Preset
         ↓
   engineStore (activeNotes, inputEnergy)
-  controlStore (sound, modulation)
+  controlStore (sound: mold, tone, texture, bloom; modulation)
         ↓
   buildOrganismState() — OrganismState.ts
         ↓

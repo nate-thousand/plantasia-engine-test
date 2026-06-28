@@ -4,7 +4,7 @@ import type { ModulationControlValues, SoundControlValues } from '../types/instr
 /**
  * Map instrument control surface sliders to engine botanical parameters.
  *
- * Engine `applyBotanicalControls` reads: energy, growth, texture, space, life, resonance.
+ * Engine `applyBotanicalControls` reads: energy, growth, texture, space, life, resonance, mold.
  * density, evolution, and random extend the live keyboard/MIDI path.
  */
 export function mapControlSurfaceToBotanical(
@@ -12,7 +12,7 @@ export function mapControlSurfaceToBotanical(
   modulation: ModulationControlValues,
 ): BotanicalControls {
   return {
-    energy: sound.volume,
+    energy: modulation.energy,
     resonance: sound.tone,
     texture: sound.texture,
     space: sound.bloom,
@@ -22,5 +22,6 @@ export function mapControlSurfaceToBotanical(
     evolution: modulation.mutation,
     random: modulation.mutation,
     harmony: sound.tone,
+    mold: sound.mold,
   };
 }

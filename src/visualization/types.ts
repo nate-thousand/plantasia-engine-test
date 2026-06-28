@@ -1,6 +1,10 @@
+import type { PlantasiaPreset } from 'plantasia-sound-engine';
 import type { ActiveNoteState } from '../stores/engineStore';
 import type { AudioVizFeedback } from '../audio/visualization/AudioTap';
 import type { ModulationControlValues, SoundControlValues } from '../types/instrument';
+import type { SourceEnergyMap, UnifiedVisualEnergyState, VisualEnergyBehavior } from './VisualEnergy';
+
+export type { VisualEnergyBehavior, UnifiedVisualEnergyState, SourceEnergyMap };
 
 /** Botanical character categories for procedural rendering. */
 export type CharacterCategory =
@@ -65,7 +69,7 @@ export type VizParticle = {
 
 /** Derived synthesis parameters mapped to visuals. */
 export type SoundVizParams = {
-  volume: number;
+  mold: number;
   tone: number;
   texture: number;
   bloom: number;
@@ -117,6 +121,7 @@ export type DecayBehavior =
   | 'fragment-cloud'
   | 'distort-decay'
   | 'gentle-unfurl'
+  | 'slow-drape'
   | 'atmospheric-fade'
   | 'shatter-fade';
 
@@ -124,6 +129,7 @@ export type SpatialLayout =
   | 'sparse-vertical'
   | 'ground-heavy'
   | 'radial-burst'
+  | 'meadow-grid'
   | 'network-cloud'
   | 'chaotic-scatter'
   | 'wide-organic'
@@ -134,6 +140,14 @@ export type SpatialLayout =
 export type PresetTheme = {
   id: string;
   name: string;
+  /** Engine organism / ascii lifecycle state. */
+  asciiState: string;
+  /** Engine species label (e.g. Plantasonic, Fern). */
+  engineSpecies: string;
+  /** Manifest or JSON category when available. */
+  category: string | null;
+  /** Optional future visual metadata from the engine preset. */
+  visualMetadata: import('../presets/types').PresetVisualMetadata;
   characterSet: string[];
   density: number;
   motionStyle: MotionStyle;
@@ -171,6 +185,11 @@ export type VizInputSnapshot = {
   modulation: ModulationControlValues;
   presetId: string;
   presetName: string;
+  activePreset: PlantasiaPreset | null;
+  asciiState: string;
+  engineSpecies: string;
+  category: string | null;
+  visualMetadata: import('../presets/types').PresetVisualMetadata;
   interactionBoost: number;
   audio: AudioVizFeedback;
   time: number;
@@ -181,6 +200,21 @@ export type VizInputSnapshot = {
   midiEffectKind: string | null;
   midiEffectIntensity: number;
   controlHighlightTick: number;
+  /** Pointer position in grid coordinates + decaying activity. */
+  pointer: {
+    gridX: number;
+    gridY: number;
+    active: boolean;
+    activity: number;
+    velocity: number;
+    isTouch: boolean;
+  };
+  /** Unified visual energy model (Milestone 12B). */
+  energy: UnifiedVisualEnergyState;
+  /** Derived ASCII behavior from energy. */
+  energyBehavior: VisualEnergyBehavior;
+  /** 0–1 preset theme crossfade progress (0 = mid-transition). */
+  presetTransition: number;
 };
 
 export type NoteSpawnEvent = {

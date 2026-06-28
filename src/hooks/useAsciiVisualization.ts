@@ -1,36 +1,49 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { sampleAudioFeedback } from '../audio/visualization/AudioTap';
-import { getControlStore, subscribeControlStore } from '../stores/controlStore';
+import { getControlStore } from '../stores/controlStore';
 import { getEngineStore, subscribeEngineStore } from '../stores/engineStore';
-import { getMidiStore, subscribeMidiStore, decayInteractionBurst } from '../stores/midiStore';
+import { getMidiStore, decayInteractionBurst } from '../stores/midiStore';
+import {
+  getPointerStore,
+  updatePointerGrid,
+  clearPointer,
+  decayPointerActivity,
+} from '../stores/pointerStore';
+import { tickVisualEnergy } from '../stores/visualEnergyStore';
 import {
   getVizAccessibility,
   initVizAccessibility,
   subscribeVizAccessibility,
 } from '../stores/visualizationStore';
+import { getPresetStore, subscribePresetStore } from '../stores/presetStore';
 import { AsciiEngine } from '../visualization/AsciiEngine';
+import { TARGET_VIZ_FPS } from '../visualization/VisualFeedback';
+import {
+  buildSliderVizState,
+  detectSliderChanges,
+  type SliderVizState,
+} from '../visualization/SliderVisualEffects';
+import { behaviorFromVisualEnergy } from '../visualization/VisualEnergy';
+import { computeViewportLayout } from '../visualization/viewportLayout';
 import type { VizInputSnapshot } from '../visualization/types';
 
 export type AsciiVisualizationProps = {
-  presetId: string;
-  presetName: string;
+  presetId?: string;
+  presetName?: string;
 };
 
 export type AsciiDisplayMetrics = {
-  fontSize: number;
+  fontSizePx: number;
+  scale: number;
   gridWidth: number;
   gridHeight: number;
 };
 
-/** Reference cell size for grid resolution — display font-size is computed separately to fill viewport. */
-const REF_CHAR_WIDTH = 7;
-const REF_CHAR_HEIGHT = 12;
-const CHAR_ASPECT = 0.58;
-const LINE_HEIGHT = 1;
-const MIN_ASCII_FONT_PT = 8;
-const MAX_ASCII_FONT_PT = 24;
-/** CSS px → pt (96dpi reference). */
-const PX_TO_PT = 72 / 96;
+/** Reference cell size used to derive grid dimensions from the container. */
+const REF_CHAR_WIDTH = 10;
+const REF_CHAR_HEIGHT = 16;
+const FRAME_MS = 1000 / TARGET_VIZ_FPS;
+const PRESET_TRANSITION_MS = 1400;
 
 const silentAudio = {
   amplitude: 0,
@@ -44,26 +57,9 @@ const silentAudio = {
   waveform: [] as number[],
 };
 
-function computeFillFontSize(
-  containerWidth: number,
-  containerHeight: number,
-  gridWidth: number,
-  gridHeight: number,
-): number {
-  if (gridWidth <= 0 || gridHeight <= 0) {
-    return MIN_ASCII_FONT_PT;
-  }
-
-  const fontFromHeight = containerHeight / (gridHeight * LINE_HEIGHT);
-  const fontFromWidth = containerWidth / (gridWidth * CHAR_ASPECT);
-  const fitPt = Math.min(fontFromHeight, fontFromWidth) * PX_TO_PT;
-  return Math.max(MIN_ASCII_FONT_PT, Math.min(MAX_ASCII_FONT_PT, fitPt));
-}
-
-export function useAsciiVisualization({ presetId, presetName }: AsciiVisualizationProps) {
+export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
   const engineStore = useSyncExternalStore(subscribeEngineStore, getEngineStore, getEngineStore);
-  const controlStore = useSyncExternalStore(subscribeControlStore, getControlStore, getControlStore);
-  const midiStore = useSyncExternalStore(subscribeMidiStore, getMidiStore, getMidiStore);
+  const presetStore = useSyncExternalStore(subscribePresetStore, getPresetStore, getPresetStore);
   const accessibility = useSyncExternalStore(
     subscribeVizAccessibility,
     getVizAccessibility,
@@ -71,12 +67,29 @@ export function useAsciiVisualization({ presetId, presetName }: AsciiVisualizati
   );
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const preRef = useRef<HTMLPreElement>(null);
   const engineRef = useRef<AsciiEngine | null>(null);
   const frameRef = useRef<number | null>(null);
-  const lastFrameRef = useRef<number>(0);
-  const [ascii, setAscii] = useState('');
+  const prevSlidersRef = useRef<SliderVizState | null>(null);
+  const presetTransitionRef = useRef(0);
+  const lastPresetIdRef = useRef('');
+  const presetRef = useRef({
+    presetId: props.presetId ?? 'seed',
+    presetName: props.presetName ?? 'Seed',
+  });
+
+  useEffect(() => {
+    const active = presetStore.activePreset;
+    const metadata = presetStore.activeMetadata;
+    presetRef.current = {
+      presetId: active?.id ?? props.presetId ?? 'seed',
+      presetName: metadata?.name ?? props.presetName ?? 'Seed',
+    };
+  }, [presetStore.activePreset, presetStore.activeMetadata, props.presetId, props.presetName]);
+
   const [displayMetrics, setDisplayMetrics] = useState<AsciiDisplayMetrics>({
-    fontSize: 10,
+    fontSizePx: 10,
+    scale: 1,
     gridWidth: 47,
     gridHeight: 33,
   });
@@ -109,12 +122,13 @@ export function useAsciiVisualization({ presetId, presetName }: AsciiVisualizati
       }
 
       const { width, height } = container.getBoundingClientRect();
+      const layout = computeViewportLayout(width, height, REF_CHAR_WIDTH, REF_CHAR_HEIGHT);
       engine.resize(width, height, REF_CHAR_WIDTH, REF_CHAR_HEIGHT);
-      const dims = engine.dimensions;
       setDisplayMetrics({
-        fontSize: computeFillFontSize(width, height, dims.width, dims.height),
-        gridWidth: dims.width,
-        gridHeight: dims.height,
+        fontSizePx: layout.fontSizePx,
+        scale: layout.scale,
+        gridWidth: layout.width,
+        gridHeight: layout.height,
       });
     };
 
@@ -126,32 +140,99 @@ export function useAsciiVisualization({ presetId, presetName }: AsciiVisualizati
 
   useEffect(() => {
     if (!engineStore.audioReady) {
-      engineRef.current?.reset();
+      engineRef.current?.softReset();
     }
   }, [engineStore.audioReady]);
 
   useEffect(() => {
-    const loop = (time: number) => {
+    let lastPaint = 0;
+
+    const paint = (time: number, force = false) => {
       const engine = engineRef.current;
-      if (!engine) {
-        frameRef.current = requestAnimationFrame(loop);
+      const pre = preRef.current;
+      if (!engine || !pre) {
         return;
       }
 
-      const deltaMs = lastFrameRef.current ? time - lastFrameRef.current : 16;
-      lastFrameRef.current = time;
+      if (!force && time - lastPaint < FRAME_MS) {
+        return;
+      }
 
-      const audio = engineStore.audioReady ? sampleAudioFeedback() : silentAudio;
+      const deltaMs = lastPaint > 0 ? time - lastPaint : FRAME_MS;
+      lastPaint = time;
+
+      const engineStore = getEngineStore();
+      const controlStore = getControlStore();
+      const midiStore = getMidiStore();
+      const accessibility = getVizAccessibility();
 
       decayInteractionBurst();
+      decayPointerActivity();
+
+      const audio = engineStore.audioReady ? sampleAudioFeedback() : silentAudio;
+      const pointerState = getPointerStore();
+      const presetState = getPresetStore();
+      const activePreset = presetState.activePreset;
+      const activeMetadata = presetState.activeMetadata;
+      const { presetId: currentPresetId, presetName: currentPresetName } = presetRef.current;
+
+      if (currentPresetId !== lastPresetIdRef.current) {
+        if (lastPresetIdRef.current) {
+          presetTransitionRef.current = 1;
+        }
+        lastPresetIdRef.current = currentPresetId;
+      }
+      presetTransitionRef.current = Math.max(
+        0,
+        presetTransitionRef.current - deltaMs / PRESET_TRANSITION_MS,
+      );
+
+      const sliders = buildSliderVizState(controlStore.sound, controlStore.modulation);
+      const sliderChanges = prevSlidersRef.current
+        ? detectSliderChanges(prevSlidersRef.current, sliders)
+        : [];
+      prevSlidersRef.current = sliders;
+      const sliderDelta =
+        sliderChanges.length > 0
+          ? Math.max(...sliderChanges.map((change) => Math.abs(change.delta))) / 100
+          : 0;
+
+      const energyState = tickVisualEnergy(
+        {
+          audio,
+          activeNotes: engineStore.activeNotes,
+          pointerActivity: pointerState.activity,
+          pointerVelocity: pointerState.velocity,
+          pointerActive: pointerState.active,
+          isTouch: pointerState.isTouch,
+          sliderCombined: sliders.combined,
+          sliderDelta,
+          presetTransition: presetTransitionRef.current,
+          interactionBoost: midiStore.interactionBurst,
+          reduceMotion: accessibility.reduceMotion,
+        },
+        deltaMs,
+        accessibility,
+      );
+
+      const energyBehavior = behaviorFromVisualEnergy(
+        energyState.visualEnergy,
+        energyState.sources,
+        accessibility.reduceMotion,
+      );
 
       const snapshot: VizInputSnapshot = {
         audioReady: engineStore.audioReady,
         activeNotes: engineStore.activeNotes,
         sound: controlStore.sound,
         modulation: controlStore.modulation,
-        presetId,
-        presetName,
+        presetId: currentPresetId,
+        presetName: currentPresetName,
+        activePreset,
+        asciiState: activeMetadata?.asciiState ?? activePreset?.asciiState ?? 'seed',
+        engineSpecies: activeMetadata?.species ?? activePreset?.species ?? '',
+        category: activeMetadata?.category ?? null,
+        visualMetadata: activeMetadata?.visual ?? {},
         interactionBoost: midiStore.interactionBurst,
         audio,
         time: time / 1000,
@@ -162,33 +243,43 @@ export function useAsciiVisualization({ presetId, presetName }: AsciiVisualizati
         midiEffectKind: midiStore.midiVisualEffect?.kind ?? null,
         midiEffectIntensity: midiStore.midiVisualEffect?.intensity ?? 0,
         controlHighlightTick: controlStore.highlight?.tick ?? 0,
+        pointer: {
+          gridX: pointerState.gridX,
+          gridY: pointerState.gridY,
+          active: pointerState.active,
+          activity: pointerState.activity,
+          velocity: pointerState.velocity,
+          isTouch: pointerState.isTouch,
+        },
+        energy: energyState,
+        energyBehavior,
+        presetTransition: presetTransitionRef.current,
       };
 
-      const frame = engine.tick(snapshot, deltaMs);
-      setAscii(frame);
-      frameRef.current = requestAnimationFrame(loop);
+      pre.textContent = engine.tick(snapshot, deltaMs);
     };
 
+    const loop = (time: number) => {
+      frameRef.current = requestAnimationFrame(loop);
+      paint(time);
+    };
+
+    paint(performance.now(), true);
     frameRef.current = requestAnimationFrame(loop);
     return () => {
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);
       }
     };
-  }, [
-    engineStore.audioReady,
-    engineStore.activeNotes,
-    controlStore.sound,
-    controlStore.modulation,
-    controlStore.highlight?.tick,
-    midiStore.interactionBurst,
-    midiStore.pitchBend,
-    midiStore.modWheel,
-    midiStore.channelPressure,
-    midiStore.midiVisualEffect?.tick,
-    presetId,
-    presetName,
-  ]);
+  }, []);
 
-  return { containerRef, ascii, accessibility, audioActive: engineStore.audioReady, displayMetrics };
+  return {
+    containerRef,
+    preRef,
+    accessibility,
+    audioActive: engineStore.audioReady,
+    displayMetrics,
+    updatePointerGrid,
+    clearPointer,
+  };
 }

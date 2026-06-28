@@ -1,7 +1,9 @@
 import type { ModulationControlValues, SoundControlValues } from '../types/instrument';
 import type { MidiControlTarget, SliderControlTarget } from '../input/MidiDefaults';
 import { isSliderTarget } from '../input/MidiDefaults';
-import { pulseInteractionBurst } from './midiStore';
+import { pulseScreenFeedback } from './midiStore';
+import { pulseVisualEnergy } from './visualEnergyStore';
+import { clampMold } from '../audio/moldSync';
 
 export type ControlHighlight = {
   target: SliderControlTarget;
@@ -16,7 +18,7 @@ export type ControlStoreState = {
 };
 
 const DEFAULT_SOUND: SoundControlValues = {
-  volume: 72,
+  mold: 12,
   tone: 50,
   texture: 40,
   bloom: 35,
@@ -100,14 +102,16 @@ export function updateSoundControl(
   value: number,
   source: 'ui' | 'midi' = 'ui',
 ): void {
-  const sound = { ...state.sound, [key]: value };
+  const nextValue = key === 'mold' ? clampMold(value) : value;
+  const sound = { ...state.sound, [key]: nextValue };
   state = {
     ...state,
     sound,
     highlight: { target: key, tick: ++highlightTick },
     lastMidiTarget: source === 'midi' ? key : state.lastMidiTarget,
   };
-  pulseInteractionBurst(source === 'ui' ? 35 : 25);
+  pulseScreenFeedback(source === 'ui' ? 95 : 80, 'knobTwist', key);
+  pulseVisualEnergy('control', source === 'ui' ? 95 : 80);
   notifyChange(source);
 }
 
@@ -123,12 +127,13 @@ export function updateModulationControl(
     highlight: { target: key, tick: ++highlightTick },
     lastMidiTarget: source === 'midi' ? key : state.lastMidiTarget,
   };
-  pulseInteractionBurst(source === 'ui' ? 35 : 25);
+  pulseScreenFeedback(source === 'ui' ? 95 : 80, 'knobTwist', key);
+  pulseVisualEnergy('control', source === 'ui' ? 95 : 80);
   notifyChange(source);
 }
 
 export function applyMidiSliderTarget(target: SliderControlTarget, value: number): void {
-  if (target === 'volume' || target === 'tone' || target === 'texture' || target === 'bloom') {
+  if (target === 'mold' || target === 'tone' || target === 'texture' || target === 'bloom') {
     updateSoundControl(target, value, 'midi');
     return;
   }
@@ -147,7 +152,7 @@ export function applyTemporaryBoost(
   amount: number,
   durationMs = 450,
 ): () => void {
-  const soundKeys: (keyof SoundControlValues)[] = ['volume', 'tone', 'texture', 'bloom'];
+  const soundKeys: (keyof SoundControlValues)[] = ['mold', 'tone', 'texture', 'bloom'];
   const isSound = soundKeys.includes(key as keyof SoundControlValues);
 
   let current: number;

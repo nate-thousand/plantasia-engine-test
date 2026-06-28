@@ -100,8 +100,8 @@ class AudioTap {
     const amplitude = Math.min(1, rms * 3.2);
     const peakNorm = Math.min(1, peak * 1.4);
 
-    this.smoothedAmplitude = this.smoothedAmplitude * 0.78 + amplitude * 0.22;
-    this.smoothedPeak = this.smoothedPeak * 0.65 + peakNorm * 0.35;
+    this.smoothedAmplitude = this.smoothedAmplitude * 0.82 + amplitude * 0.18;
+    this.smoothedPeak = this.smoothedPeak * 0.72 + peakNorm * 0.28;
 
     const bassEnd = Math.floor(binCount * 0.12);
     const midEnd = Math.floor(binCount * 0.45);
@@ -113,7 +113,7 @@ class AudioTap {
     let magnitudeSum = 0;
 
     const spectrum: number[] = [];
-    const columnCount = 24;
+    const columnCount = 16;
 
     for (let i = 0; i < binCount; i += 1) {
       const magnitude = this.frequencyData[i] / 255;
@@ -140,7 +140,7 @@ class AudioTap {
     }
 
     const waveform: number[] = [];
-    const waveStep = Math.max(1, Math.floor(this.timeData.length / 32));
+    const waveStep = Math.max(1, Math.floor(this.timeData.length / 16));
     for (let i = 0; i < this.timeData.length; i += waveStep) {
       waveform.push((this.timeData[i] - 128) / 128);
     }

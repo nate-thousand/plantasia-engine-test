@@ -1,6 +1,8 @@
 import type { MidiControlTarget } from '../input/MidiDefaults';
 import { getMappingCount } from '../input/MidiControlMap';
 import type { MidiVisualEffect } from '../visualization/ThemeMidiEffects';
+import { INTERACTION_DECAY_STEP, interactionPulseAmount } from '../visualization/VisualFeedback';
+import { pulseVisualEnergy } from './visualEnergyStore';
 
 export type MidiStoreState = {
   learnEnabled: boolean;
@@ -17,6 +19,8 @@ export type MidiStoreState = {
   pitchBend: number;
   modWheel: number;
   channelPressure: number;
+  pitchBendRange: number;
+  velocityCurve: 'soft' | 'normal' | 'bright';
   midiVisualEffect: MidiVisualEffect | null;
   isMpkMini: boolean;
 };
@@ -36,6 +40,8 @@ const initialState: MidiStoreState = {
   pitchBend: 0,
   modWheel: 64,
   channelPressure: 0,
+  pitchBendRange: 2,
+  velocityCurve: 'normal',
   midiVisualEffect: null,
   isMpkMini: false,
 };
@@ -84,12 +90,41 @@ export function setMpkMiniActive(active: boolean): void {
 }
 
 export function pulseInteractionBurst(amount: number): void {
-  patchMidiStore({ interactionBurst: Math.max(state.interactionBurst, amount) });
+  patchMidiStore({
+    interactionBurst: Math.max(state.interactionBurst, interactionPulseAmount(amount)),
+  });
 }
 
-export function decayInteractionBurst(step = 1): void {
+export function decayInteractionBurst(step = INTERACTION_DECAY_STEP): void {
   if (state.interactionBurst > 0) {
     patchMidiStore({ interactionBurst: Math.max(0, state.interactionBurst - step) });
+  }
+}
+
+/** Combined burst + MIDI visual effect — call on any user interaction. */
+export function pulseScreenFeedback(
+  intensity: number,
+  kind: MidiVisualEffect['kind'] = 'padHit',
+  controlTarget?: string,
+): void {
+  const scaled = Math.min(127, Math.max(intensity, 85));
+  pulseInteractionBurst(scaled);
+  triggerMidiVisualEffect(kind, scaled, controlTarget);
+
+  switch (kind) {
+    case 'presetChange':
+      pulseVisualEnergy('preset', scaled);
+      break;
+    case 'knobTwist':
+      pulseVisualEnergy('control', scaled);
+      break;
+    case 'play':
+    case 'stop':
+      pulseVisualEnergy('ui', scaled);
+      break;
+    default:
+      pulseVisualEnergy('ui', scaled * 0.65);
+      break;
   }
 }
 
@@ -106,7 +141,10 @@ export function triggerMidiVisualEffect(
       tick: effectTick,
       controlTarget,
     },
-    interactionBurst: Math.max(state.interactionBurst, Math.round((intensity / 127) * 40 * 5)),
+    interactionBurst: Math.max(
+      state.interactionBurst,
+      interactionPulseAmount(Math.round((intensity / 127) * 40 + 60)),
+    ),
   });
 }
 

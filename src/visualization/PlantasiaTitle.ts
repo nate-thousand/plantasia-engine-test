@@ -36,6 +36,7 @@ const PLANTASIA_BANNER_BLOCK: FigletBanner = [
 ];
 
 const PLANTASIA_BANNERS: FigletBanner[] = [PLANTASIA_BANNER_CLASSIC, PLANTASIA_BANNER_BLOCK];
+const COMPACT_TITLE = 'PLANTASIA';
 
 type BannerMetrics = { width: number; height: number };
 
@@ -54,12 +55,13 @@ function hashSeed(value: string): number {
   return Math.abs(hash);
 }
 
+/** Banner must fit entirely inside the grid — no partial cropping. */
 function bannerFits(banner: FigletBanner, width: number, height: number): boolean {
   const { width: bannerWidth, height: bannerHeight } = bannerMetrics(banner);
-  return width >= bannerWidth * 0.75 && height >= bannerHeight + 4;
+  return width >= bannerWidth && height >= bannerHeight;
 }
 
-/** Pick a random banner variant per preset; prefer the hashed choice, fall back to the other. */
+/** Pick a banner variant that fits whole; prefer hashed choice when it fits. */
 function pickBanner(themeId: string, width: number, height: number): FigletBanner | null {
   const primary = hashSeed(themeId) % PLANTASIA_BANNERS.length;
   const order = [primary, ...PLANTASIA_BANNERS.map((_, i) => i).filter((i) => i !== primary)];
@@ -74,8 +76,8 @@ function pickBanner(themeId: string, width: number, height: number): FigletBanne
   return null;
 }
 
-function themeBannerY(_theme: PresetTheme): number {
-  return 0;
+function centeredStart(total: number, size: number): number {
+  return Math.max(0, Math.floor((total - size) / 2));
 }
 
 function themeTitlePriority(theme: PresetTheme, pulse: number): number {
@@ -95,7 +97,7 @@ function bannerChar(
 ): string {
   const seed = col * 3 + row * 41 + Math.floor(time * (1.5 + pulse * 4));
 
-  if (theme.id === 'mutation' && pulse > 0.12 && Math.sin(time * 14 + seed) > 0.92) {
+  if (theme.id === 'mutation' && pulse > 0.04 && Math.sin(time * 14 + seed) > 0.75) {
     return pickThemeAccent(theme, seed);
   }
 
@@ -103,7 +105,7 @@ function bannerChar(
     return Math.sin(time * 2 + col * 0.2) > 0.4 ? pickThemeAccent(theme, seed) : literal;
   }
 
-  if (glow > 0.55 && pulse > 0.15 && (literal === '_' || literal === 'P' || literal === 'l')) {
+  if (glow > 0.2 && pulse > 0.03 && (literal === '_' || literal === 'P' || literal === 'l')) {
     return pickThemeChar(theme, seed);
   }
 
@@ -111,26 +113,26 @@ function bannerChar(
 }
 
 function paintCompactFallback(ctx: SceneContext): void {
-  const { width, theme, time, paint, interactionPulse, amplitude, energy } = ctx;
-  const word = 'PLANTASIA';
-  if (width < word.length) {
+  const { width, height, theme, time, paint, interactionPulse, amplitude, energy } = ctx;
+  if (width < COMPACT_TITLE.length) {
     return;
   }
 
   const pulse = interactionPulse / 127;
-  const glow = Math.min(1.5, energy + amplitude * FEEDBACK_GAIN * 0.15 + pulse * 0.85);
-  const startX = Math.floor((width - word.length) / 2);
-  const y = themeBannerY(theme);
+  const glow = Math.min(2.2, energy + amplitude * FEEDBACK_GAIN * 0.22 + pulse * 1.35);
+  const startX = centeredStart(width, COMPACT_TITLE.length);
+  const y = centeredStart(height, 1);
+  const priority = themeTitlePriority(theme, pulse);
 
-  for (let i = 0; i < word.length; i += 1) {
-    const x = startX + i + Math.round(Math.sin(time * 1.4 + i * 0.55) * 0.35);
+  for (let i = 0; i < COMPACT_TITLE.length; i += 1) {
+    const x = startX + i;
     if (x < 0 || x >= width) {
       continue;
     }
     const seed = i + Math.floor(time * 3);
     const char =
-      glow > 0.35 || pulse > 0.1 ? pickThemeAccent(theme, seed) : pickThemeChar(theme, seed);
-    paint(x, y, char, themeTitlePriority(theme, pulse));
+      glow > 0.2 || pulse > 0.04 ? pickThemeAccent(theme, seed) : pickThemeChar(theme, seed);
+    paint(x, y, char, priority);
   }
 }
 
@@ -138,21 +140,30 @@ function paintFigletBanner(ctx: SceneContext, banner: FigletBanner): void {
   const { width, height, theme, time, paint, animSpeed, amplitude, energy, interactionPulse } =
     ctx;
   const { width: bannerWidth, height: bannerHeight } = bannerMetrics(banner);
+
+  if (!bannerFits(banner, width, height)) {
+    paintCompactFallback(ctx);
+    return;
+  }
+
   const pulse = interactionPulse / 127;
-  const glow = Math.min(1.5, energy + amplitude * FEEDBACK_GAIN * 0.15 + pulse * 0.85);
-  const startX = Math.floor((width - bannerWidth) / 2);
-  const startY = themeBannerY(theme);
+  const glow = Math.min(2.2, energy + amplitude * FEEDBACK_GAIN * 0.22 + pulse * 1.35);
+  const startX = centeredStart(width, bannerWidth);
+  const startY = centeredStart(height, bannerHeight);
   const priority = themeTitlePriority(theme, pulse);
+  const allowWobble = bannerWidth + 4 < width;
   const rowWobble =
-    theme.id === 'coral' || theme.id === 'vine'
+    allowWobble && (theme.id === 'coral' || theme.id === 'vine')
       ? Math.round(Math.sin(time * animSpeed * 0.8) * 0.4)
       : 0;
 
   for (let row = 0; row < bannerHeight; row += 1) {
     const line = banner[row] ?? '';
-    const y = startY + row + (theme.id === 'crystal' ? Math.round(Math.sin(time + row) * 0.2) : 0);
+    const crystalOffset =
+      theme.id === 'crystal' && allowWobble ? Math.round(Math.sin(time + row) * 0.2) : 0;
+    const y = startY + row + crystalOffset;
 
-    if (y < 0 || y >= height) {
+    if (y < startY || y >= startY + bannerHeight || y < 0 || y >= height) {
       continue;
     }
 
@@ -163,7 +174,7 @@ function paintFigletBanner(ctx: SceneContext, banner: FigletBanner): void {
       }
 
       const x = startX + col + rowWobble;
-      if (x < 0 || x >= width) {
+      if (x < startX || x >= startX + bannerWidth || x < 0 || x >= width) {
         continue;
       }
 
@@ -172,7 +183,7 @@ function paintFigletBanner(ctx: SceneContext, banner: FigletBanner): void {
   }
 
   if (pulse > 0.08) {
-    const shimmerCount = Math.round(pulse * bannerWidth * 0.2 * FEEDBACK_GAIN);
+    const shimmerCount = Math.round(pulse * bannerWidth * 0.06);
     for (let i = 0; i < shimmerCount; i += 1) {
       const col = Math.floor((i * 5.7 + time * 30) % bannerWidth);
       const row = Math.floor((i * 2.3 + time * 12) % bannerHeight);
@@ -183,14 +194,14 @@ function paintFigletBanner(ctx: SceneContext, banner: FigletBanner): void {
       }
       const x = startX + col;
       const y = startY + row;
-      if (x >= 0 && x < width && y >= 0 && y < height) {
+      if (x >= startX && x < startX + bannerWidth && y >= startY && y < startY + bannerHeight) {
         paint(x, y, pickThemeAccent(theme, i + Math.floor(time * 12)), priority + 1);
       }
     }
   }
 }
 
-/** Paint a randomized PLANTASIA figlet banner integrated into each botanical scene. */
+/** Paint a centered PLANTASIA title — figlet when it fits, compact text otherwise. */
 export function paintPlantasiaTitle(ctx: SceneContext): void {
   const banner = pickBanner(ctx.theme.id, ctx.width, ctx.height);
 

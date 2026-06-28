@@ -14,7 +14,7 @@ export const MPK_MINI_BANK_B_PAD_ACTIONS: Record<number, MidiPadAction> = {
   38: 'textureBurst',
   39: 'growthBurst',
   40: 'driftBurst',
-  41: 'volumeBoost',
+  41: 'moldBoost',
   42: 'reverbBurst',
   43: 'chorusBurst',
 };
@@ -26,7 +26,7 @@ export const MPK_MINI_BANK_B_CC_ACTIONS: Record<number, MidiPadAction> = {
   30: 'textureBurst',
   31: 'growthBurst',
   32: 'driftBurst',
-  33: 'volumeBoost',
+  33: 'moldBoost',
   34: 'reverbBurst',
   35: 'chorusBurst',
 };
@@ -70,7 +70,7 @@ export function isMpkPadNote(note: number): boolean {
 
 export const MPK_MINI_CONTROL_SUMMARY = {
   keys: 'Channel 1 — Note On/Off only (never changes preset)',
-  knobs: 'CC 1–8 → Volume, Tone, Texture, Bloom, Growth, Drift, Mutation, Energy',
+  knobs: 'CC 1–8 → Mold, Tone, Texture, Bloom, Growth, Drift, Mutation, Energy',
   joystickX: 'Pitch Bend → pan drift + visual wind',
   joystickY: 'CC 1 (shared with Knob 1 on hardware)',
   padsBankA: 'Channel 10, Notes 48–55 → Transport & preset (pads only)',

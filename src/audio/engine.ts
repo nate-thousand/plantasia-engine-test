@@ -39,7 +39,7 @@ export function applyControlSurface(
   engineAdapter.applyControlSurface(sound, modulation);
 }
 
-/** Apply sound sliders immediately (volume, tone, texture, bloom). */
+/** Apply sound sliders immediately (mold, tone, texture, bloom). */
 export function applySoundControls(
   sound: SoundControlValues,
   modulation: ModulationControlValues,

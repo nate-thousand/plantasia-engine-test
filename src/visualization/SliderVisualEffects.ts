@@ -1,10 +1,11 @@
 import type { ModulationControlValues, SoundControlValues } from '../types/instrument';
 import { pickThemeAccent, pickThemeChar } from './ThemeCharacters';
-import { FEEDBACK_GAIN, feedbackScale, feedbackThreshold } from './VisualFeedback';
+import { FEEDBACK_GAIN, asciiDensityScale, feedbackScale, feedbackThreshold } from './VisualFeedback';
+import { densityFromVisualEnergy } from './VisualEnergy';
 import type { PresetTheme } from './types';
 
 export type SliderKey =
-  | 'volume'
+  | 'mold'
   | 'tone'
   | 'texture'
   | 'bloom'
@@ -21,7 +22,7 @@ export type SliderVizState = Record<SliderKey, number> & {
 export type SliderPaintFn = (x: number, y: number, char: string, priority: number) => void;
 
 const SLIDER_KEYS: SliderKey[] = [
-  'volume',
+  'mold',
   'tone',
   'texture',
   'bloom',
@@ -31,25 +32,26 @@ const SLIDER_KEYS: SliderKey[] = [
   'energy',
 ];
 
-function norm(value: number): number {
-  return Math.max(0, Math.min(1, value / 100));
+function norm(value: number | undefined, fallback = 0): number {
+  const n = typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  return Math.max(0, Math.min(1, n / 100));
 }
 
 export function buildSliderVizState(
   sound: SoundControlValues,
   modulation: ModulationControlValues,
 ): SliderVizState {
-  const volume = norm(sound.volume);
-  const tone = norm(sound.tone);
-  const texture = norm(sound.texture);
-  const bloom = norm(sound.bloom);
-  const growthRate = norm(modulation.growthRate);
-  const drift = norm(modulation.drift);
-  const mutation = norm(modulation.mutation);
-  const energy = norm(modulation.energy);
+  const mold = norm(sound.mold, 12);
+  const tone = norm(sound.tone, 50);
+  const texture = norm(sound.texture, 40);
+  const bloom = norm(sound.bloom, 35);
+  const growthRate = norm(modulation.growthRate, 45);
+  const drift = norm(modulation.drift, 30);
+  const mutation = norm(modulation.mutation, 20);
+  const energy = norm(modulation.energy, 55);
 
   const combined =
-    volume * 0.14 +
+    mold * 0.14 +
     tone * 0.12 +
     texture * 0.12 +
     bloom * 0.12 +
@@ -59,7 +61,7 @@ export function buildSliderVizState(
     energy * 0.14;
 
   return {
-    volume,
+    mold,
     tone,
     texture,
     bloom,
@@ -78,23 +80,23 @@ export function sliderSceneIntensity(sliders: SliderVizState): {
   animSpeed: number;
 } {
   return {
-    energy: feedbackScale(0.15 + sliders.energy * 0.85 + sliders.growthRate * 0.25, 3),
-    amplitude: feedbackScale(0.08 + sliders.volume * 0.5 + sliders.combined * 0.35, 2.5),
-    animSpeed: feedbackScale(0.5 + sliders.growthRate * 0.8 + sliders.energy * 0.6 + sliders.drift * 0.3, 4),
+    energy: feedbackScale(0.15 + sliders.energy * 0.85 + sliders.growthRate * 0.25, 4),
+    amplitude: feedbackScale(0.08 + sliders.mold * 0.35 + sliders.combined * 0.35, 3.5),
+    animSpeed: feedbackScale(0.5 + sliders.growthRate * 0.8 + sliders.energy * 0.6 + sliders.drift * 0.3, 4.5),
   };
 }
 
 /** Per-frame ambient particle spawn rate multiplier from sliders. */
 export function sliderAmbientParticleRate(sliders: SliderVizState): number {
   return feedbackScale(
-    0.2 +
-      sliders.energy * 2.5 +
-      sliders.bloom * 1.8 +
-      sliders.texture * 1.2 +
-      sliders.drift * 1.5 +
-      sliders.mutation * 1.4 +
-      sliders.volume * 0.8,
-    12,
+    0.12 +
+      sliders.energy * 1.2 +
+      sliders.bloom * 0.9 +
+      sliders.texture * 0.6 +
+      sliders.drift * 0.75 +
+      sliders.mutation * 0.7 +
+      sliders.mold * 0.55,
+    3.5,
   );
 }
 
@@ -103,14 +105,14 @@ export function sliderWindDepth(sliders: SliderVizState): number {
   return feedbackScale(sliders.drift * 0.9 + sliders.bloom * 0.35 + sliders.energy * 0.25, 3);
 }
 
-/** Bass ground pulse strength from volume. */
+/** Bass ground pulse strength from mold decay. */
 export function sliderBassStrength(sliders: SliderVizState, audioBass: number): number {
-  return feedbackScale(audioBass * (0.4 + sliders.volume * 1.2), 3);
+  return feedbackScale(audioBass * (0.4 + sliders.mold * 0.9), 3);
 }
 
-/** Spectrum / waveform visibility from volume + tone + energy. */
+/** Spectrum / waveform visibility from mold + tone + energy. */
 export function sliderSpectrumGain(sliders: SliderVizState, audioAmp: number): number {
-  return feedbackScale(audioAmp * (0.35 + sliders.volume * 0.9 + sliders.tone * 0.4 + sliders.energy * 0.35), 3);
+  return feedbackScale(audioAmp * (0.35 + sliders.mold * 0.5 + sliders.tone * 0.4 + sliders.energy * 0.35), 3);
 }
 
 /** Detect sliders that moved since last frame (for pulse bursts). */
@@ -142,15 +144,21 @@ export function paintSliderReactiveOverlays(
   time: number,
   paint: SliderPaintFn,
   interactionPulse = 0,
+  visualEnergy = 0,
 ): void {
   const ground = height - 2;
   const cx = Math.floor(width / 2);
-  const pulse = interactionPulse / 127;
-  const gain = FEEDBACK_GAIN;
+  const pulse = Math.max(interactionPulse / 127, visualEnergy);
+  const pulseActive = pulse > 0.04;
+  const densityScale =
+    visualEnergy > 0
+      ? densityFromVisualEnergy(visualEnergy)
+      : asciiDensityScale(interactionPulse);
+  const gain = FEEDBACK_GAIN * densityScale;
 
-  if (sliders.volume > feedbackThreshold(0.08) || pulse > 0.05) {
-    const span = Math.round((sliders.volume + pulse * 0.5) * width * 0.5 * gain);
-    const char = sliders.volume > 0.65 ? '▓' : sliders.volume > 0.35 ? '▒' : '░';
+  if (sliders.mold > feedbackThreshold(0.08) || pulseActive) {
+    const span = Math.round((sliders.mold + pulse * 0.5) * width * 0.45 * gain);
+    const char = sliders.mold > 0.65 ? '▓' : sliders.mold > 0.35 ? '▒' : '░';
     for (let x = cx - span; x <= cx + span; x += 1) {
       if (x >= 0 && x < width) {
         paint(x, ground, char, 3);
@@ -158,7 +166,7 @@ export function paintSliderReactiveOverlays(
     }
   }
 
-  if (sliders.tone > feedbackThreshold(0.12) || pulse > 0.08) {
+  if (sliders.tone > feedbackThreshold(0.12) || pulseActive) {
     const topRows = Math.round((sliders.tone + pulse * 0.4) * 4 * gain);
     for (let y = 0; y < topRows; y += 1) {
       for (let x = 0; x < width; x += Math.max(1, Math.round(6 - sliders.tone * 4 - pulse * 2))) {
@@ -169,18 +177,18 @@ export function paintSliderReactiveOverlays(
     }
   }
 
-  if (sliders.texture > feedbackThreshold(0.15) || pulse > 0.06) {
-    const density = (sliders.texture + pulse * 0.35) * 0.45 * gain;
-    for (let y = 1; y < height - 2; y += 1) {
-      for (let x = 0; x < width; x += 1) {
-        if (Math.sin(x * 0.7 + y * 0.5 + time * gain) > 1 - density * 2) {
+  if (sliders.texture > feedbackThreshold(0.15) || pulseActive) {
+    const density = (sliders.texture + pulse * 0.35) * 0.22 * densityScale;
+    for (let y = 1; y < height - 2; y += 2) {
+      for (let x = 0; x < width; x += 2) {
+        if (Math.sin(x * 0.7 + y * 0.5 + time) > 1 - density * 2) {
           paint(x, y, pickThemeChar(theme, x * 3 + y), 2);
         }
       }
     }
   }
 
-  if (sliders.bloom > feedbackThreshold(0.12) || pulse > 0.1) {
+  if (sliders.bloom > feedbackThreshold(0.12) || pulseActive) {
     const r = Math.round((2 + sliders.bloom * 5 + pulse * 4) * Math.min(gain, 3));
     const corners = [
       { x: 2, y: 2 },
@@ -204,7 +212,7 @@ export function paintSliderReactiveOverlays(
     }
   }
 
-  if (sliders.growthRate > feedbackThreshold(0.12) || pulse > 0.08) {
+  if (sliders.growthRate > feedbackThreshold(0.12) || pulseActive) {
     const columns = Math.max(3, Math.round((sliders.growthRate + pulse * 0.3) * width * 0.15 * gain));
     for (let i = 0; i < columns; i += 1) {
       const x = Math.floor((i + 0.5) * (width / columns));
@@ -217,11 +225,11 @@ export function paintSliderReactiveOverlays(
     }
   }
 
-  if (sliders.drift > feedbackThreshold(0.1) || pulse > 0.06) {
-    const rows = Math.round((2 + sliders.drift * 5 + pulse * 3) * Math.min(gain, 2.5));
+  if (sliders.drift > feedbackThreshold(0.1) || pulseActive) {
+    const rows = Math.round((2 + sliders.drift * 3 + pulse * 2) * Math.min(gain, 1.5));
     for (let row = 0; row < rows; row += 1) {
       const y = Math.floor((row + 1) * (height / (rows + 2)));
-      for (let x = 0; x < width; x += 1) {
+      for (let x = 0; x < width; x += 2) {
         const wave = Math.sin(x * 0.25 + time * (1.5 + sliders.drift * 2) * gain + row);
         if (Math.abs(wave) > 0.65 - sliders.drift * 0.3 - pulse * 0.2) {
           paint(x, y, '~', 2);
@@ -230,8 +238,8 @@ export function paintSliderReactiveOverlays(
     }
   }
 
-  if (sliders.mutation > feedbackThreshold(0.1) || pulse > 0.12) {
-    const count = Math.round((sliders.mutation + pulse * 0.4) * width * height * 0.012 * gain);
+  if (sliders.mutation > feedbackThreshold(0.1) || pulseActive) {
+    const count = Math.round((sliders.mutation + pulse * 0.4) * width * height * 0.0025 * gain * densityScale);
     for (let i = 0; i < count; i += 1) {
       const x = Math.floor(pseudo(i, time) * width);
       const y = Math.floor(pseudo(i + 7, time * 1.3) * (height - 2));
@@ -241,8 +249,8 @@ export function paintSliderReactiveOverlays(
     }
   }
 
-  if (sliders.energy > feedbackThreshold(0.1) || pulse > 0.08) {
-    const sparkCount = Math.round((sliders.energy + pulse * 0.5) * width * 0.25 * gain);
+  if (sliders.energy > feedbackThreshold(0.1) || pulseActive) {
+    const sparkCount = Math.round((sliders.energy + pulse * 0.5) * width * 0.08 * gain * densityScale);
     for (let i = 0; i < sparkCount; i += 1) {
       const x = Math.floor(pseudo(i + 3, time * 0.7 * gain) * width);
       const y = Math.floor(pseudo(i + 11, time * gain) * height);
@@ -263,7 +271,7 @@ export function sliderChangeBurstCount(key: SliderKey, value: number, delta: num
       return base + 4 * FEEDBACK_GAIN;
     case 'mutation':
       return base + 3 * FEEDBACK_GAIN;
-    case 'volume':
+    case 'mold':
       return base + 2 * FEEDBACK_GAIN;
     default:
       return base + FEEDBACK_GAIN;

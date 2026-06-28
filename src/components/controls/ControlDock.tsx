@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import { KeyboardControls } from './KeyboardControls';
+import { MidiControls } from './MidiControls';
 import { ModulationControls } from './ModulationControls';
-import { PresetMidiControls } from './PresetMidiControls';
+import { PresetControls } from './PresetControls';
 import { SoundControls } from './SoundControls';
+import { StatusFeedback } from './StatusFeedback';
 import { TransportControls } from './TransportControls';
 import { VizControls } from './VizControls';
 import type { UseInstrumentReturn } from '../../hooks/useInstrument';
@@ -26,18 +29,31 @@ export function ControlDock({ instrument }: ControlDockProps) {
       >
         <div className="control-dock">
           <TransportControls transport={instrument.transport} midi={instrument.midi} />
-          <PresetMidiControls
-            presets={instrument.presets}
-            midi={instrument.midi}
-            audioReady={audioReady}
-          />
-          <SoundControls sound={instrument.sound} midi={instrument.midi} audioReady={audioReady} />
-          <ModulationControls
-            modulation={instrument.modulation}
-            midi={instrument.midi}
-            audioReady={audioReady}
-          />
-          <VizControls />
+
+          <div className="control-dock__main">
+            <StatusFeedback status={instrument.status} />
+
+            <div className="control-dock__grid">
+              <PresetControls
+                presets={instrument.presets}
+                midi={instrument.midi}
+                audioReady={audioReady}
+              />
+              <MidiControls midi={instrument.midi} audioReady={audioReady} />
+              <KeyboardControls keyboard={instrument.keyboard} audioReady={audioReady} />
+              <SoundControls
+                sound={instrument.sound}
+                midi={instrument.midi}
+                audioReady={audioReady}
+              />
+              <ModulationControls
+                modulation={instrument.modulation}
+                midi={instrument.midi}
+                audioReady={audioReady}
+              />
+              <VizControls />
+            </div>
+          </div>
         </div>
       </div>
 

@@ -465,7 +465,7 @@ The `plantasia-engine-test` instrument maps musical input to grammar symbols pro
 
 | Control | Visual effect |
 |---------|----------------|
-| Volume | Particle row amplitude / density intensity |
+| Mold | Organic decay / corruption visual intensity |
 | Tone | Brightness halo (`●` vs `·`) |
 | Texture | `░▒▓` texture band width |
 | Bloom | Flower cross scale |

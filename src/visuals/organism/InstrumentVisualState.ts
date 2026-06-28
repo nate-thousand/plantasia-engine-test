@@ -15,7 +15,7 @@ export function createOrganismForParams(params: OrganismVisualParams) {
     activeNotes: params.activeNotes,
     lastNote: params.lastNote,
     sound: {
-      volume: params.volume,
+      mold: params.mold,
       tone: params.tone,
       texture: params.texture,
       bloom: params.bloom,

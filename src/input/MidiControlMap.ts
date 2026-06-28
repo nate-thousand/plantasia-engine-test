@@ -25,7 +25,14 @@ function learnedTarget(cc: number, channel?: number): MidiControlTarget | null {
   const match = cachedMappings.find(
     (entry) => entry.cc === cc && (entry.channel === undefined || entry.channel === channel),
   );
-  return match?.target ?? null;
+  if (!match?.target) {
+    return null;
+  }
+  // Migrate legacy learned mappings from the removed Volume control.
+  if (match.target === ('volume' as MidiControlTarget)) {
+    return 'mold';
+  }
+  return match.target;
 }
 
 /**
@@ -71,7 +78,8 @@ export function getCcAssignments(): Record<number, MidiControlTarget> {
 export function getTargetForCc(cc: number): MidiControlTarget | null {
   const learned = cachedMappings.find((entry) => entry.cc === cc);
   if (learned) {
-    return learned.target;
+    return learned.target === ('volume' as MidiControlTarget) ? 'mold' : learned.target;
   }
-  return STANDARD_CC_MAP[cc] ?? null;
+  const standard = STANDARD_CC_MAP[cc];
+  return standard ?? null;
 }

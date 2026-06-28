@@ -4,6 +4,8 @@ import type {
   PresetSummary,
   SoundControlValues,
 } from '../../types/instrument';
+import type { PresetMetadata } from '../../presets/types';
+import { formatCategoryLabel } from '../../presets/categories';
 import type { ActiveNoteState } from '../../stores/engineStore';
 
 const CONSONANT_INTERVALS = new Set([0, 3, 4, 7, 12]);
@@ -22,11 +24,11 @@ export type OrganismLifeState =
 /** Chord interval classification for visual structure selection. */
 export type HarmonyProfile = 'none' | 'consonant' | 'dissonant' | 'cluster';
 
-/** Placeholder preset visual identity (fallback when metadata is sparse). */
+/** Placeholder preset visual identity derived from engine metadata. */
 export type PresetVisualIdentity = {
   id: string;
   name: string;
-  category: 'flora' | 'ambient' | 'textures' | 'unknown';
+  category: string;
   archetype: string;
   density: number;
   growthStyle: 'upward' | 'radial' | 'network' | 'minimal';
@@ -59,62 +61,66 @@ export type BuildOrganismStateInput = {
   sound: SoundControlValues;
   modulation: ModulationControlValues;
   preset: PresetSummary | null;
+  presetMetadata?: PresetMetadata | null;
   interactionBoost?: number;
 };
 
-function inferPresetCategory(id: string): PresetVisualIdentity['category'] {
-  const flora = ['seed', 'root', 'bloom', 'fern', 'vine', 'juno-flowers'];
-  const ambient = ['coral', 'mycelium'];
-  const textures = ['mutation', 'crystal'];
-
-  if (flora.includes(id)) {
-    return 'flora';
+function growthStyleForAsciiState(asciiState: string | null): PresetVisualIdentity['growthStyle'] {
+  switch (asciiState) {
+    case 'bloom':
+      return 'radial';
+    case 'mycelium':
+    case 'ecosystem':
+      return 'network';
+    case 'mutation':
+      return 'radial';
+    case 'growth':
+      return 'upward';
+    default:
+      return 'minimal';
   }
-  if (ambient.includes(id)) {
-    return 'ambient';
-  }
-  if (textures.includes(id)) {
-    return 'textures';
-  }
-  return 'unknown';
 }
 
-/** Fallback preset visual identity from catalog entry. */
-export function buildPresetVisualIdentity(preset: PresetSummary | null): PresetVisualIdentity {
-  const id = preset?.id ?? 'seed';
-  const name = preset?.name ?? 'Seed';
-  const category = inferPresetCategory(id);
+function densityForAsciiState(asciiState: string | null): number {
+  switch (asciiState) {
+    case 'mycelium':
+    case 'ecosystem':
+      return 0.7;
+    case 'mutation':
+      return 0.85;
+    case 'growth':
+      return 0.55;
+    case 'bloom':
+      return 0.6;
+    default:
+      return 0.5;
+  }
+}
 
-  const archetypes: Record<string, string> = {
-    seed: 'origin',
-    root: 'foundation',
-    bloom: 'flower',
-    fern: 'branch',
-    vine: 'connection',
-    'juno-flowers': 'harmony',
-    coral: 'network',
-    mycelium: 'matrix',
-    mutation: 'disruption',
-    crystal: 'lattice',
-  };
-
-  const growthStyles: Record<PresetVisualIdentity['category'], PresetVisualIdentity['growthStyle']> = {
-    flora: 'upward',
-    ambient: 'network',
-    textures: 'radial',
-    unknown: 'minimal',
-  };
+/** Preset visual identity from engine metadata — no hardcoded preset ids. */
+export function buildPresetVisualIdentity(
+  preset: PresetSummary | null,
+  metadata?: PresetMetadata | null,
+): PresetVisualIdentity {
+  const id = metadata?.id ?? preset?.id ?? 'unknown';
+  const name = metadata?.name ?? preset?.name ?? 'Unknown';
+  const category = metadata?.category ?? preset?.category ?? 'unknown';
+  const asciiState = metadata?.asciiState ?? preset?.asciiState ?? null;
+  const mood = metadata?.mood ?? preset?.mood ?? '';
 
   return {
     id,
     name,
-    category,
-    archetype: archetypes[id] ?? 'organism',
-    density: category === 'ambient' ? 0.7 : category === 'textures' ? 0.85 : 0.5,
-    growthStyle: growthStyles[category],
-    mutationLevel: id === 'mutation' ? 0.8 : category === 'textures' ? 0.45 : 0.2,
-    bloomShape: id.includes('bloom') || id === 'juno-flowers' ? 'diamond' : 'cross',
-    energyProfile: category === 'flora' ? 0.55 : 0.65,
+    category: category === 'unknown' ? 'unknown' : formatCategoryLabel(category),
+    archetype: asciiState ?? 'organism',
+    density: densityForAsciiState(asciiState),
+    growthStyle: growthStyleForAsciiState(asciiState),
+    mutationLevel: asciiState === 'mutation' ? 0.8 : mood.includes('disrupt') ? 0.5 : 0.2,
+    bloomShape:
+      asciiState === 'bloom' || mood.includes('bloom') || mood.includes('flower')
+        ? 'diamond'
+        : 'cross',
+    energyProfile: asciiState === 'ecosystem' ? 0.68 : 0.55,
   };
 }
 
@@ -206,7 +212,7 @@ export function resolveLifeState(state: OrganismState): OrganismLifeState {
 
 /** Compose OrganismState from engine store + control surface. */
 export function buildOrganismState(input: BuildOrganismStateInput): OrganismState {
-  const preset = buildPresetVisualIdentity(input.preset);
+  const preset = buildPresetVisualIdentity(input.preset, input.presetMetadata);
 
   if (!input.audioReady || input.visualState === 'dormant') {
     return {

@@ -1,4 +1,5 @@
 import type { BotanicalControls } from 'plantasia-sound-engine';
+import { getPresetLiveRouting, resolveMoldParameters } from 'plantasia-sound-engine';
 import type { ModulationControlValues, SoundControlValues } from '../types/instrument';
 import type { PlantasiaPreset, SynthSettings } from 'plantasia-sound-engine';
 import * as Tone from 'tone';
@@ -12,21 +13,50 @@ import {
   syncJunoBotanical,
   tickJunoLivingVoice,
   toJunoEnginePreset,
+  applyJunoMold,
   type JunoBotanicalGraph,
   type JunoEnginePreset,
   type JunoLiveVoice,
   type JunoSynthState,
 } from './junoEngineBridge';
+import {
+  applyPlantasonicMold,
+  buildPlantasonicPerformanceState,
+  createPlantasonicLiveVoice,
+  ensurePlantasonicRuntime,
+  releasePlantasonicVoice,
+  setPlantasonicModeActive,
+  setPlantasonicPerformance,
+  stopAllPlantasonicVoices,
+  syncPlantasonicGraph,
+  tickPlantasonicLivingVoice,
+  toPlantasonicEnginePreset,
+  type PlantasonicEnginePreset,
+  type PlantasonicGraph,
+  type PlantasonicLiveVoice,
+  type PlantasonicPerformanceState,
+} from './plantasonicEngineBridge';
 import { midiToNoteName } from '../input/noteMap';
-import { soundSliderToParams } from './soundControls';
+import { getMidiStore } from '../stores/midiStore';
+import { soundSliderToParams, INTERNAL_MASTER_DB } from './soundControls';
+import { velocityToGain } from './velocityCurve';
+import { clampMold } from './moldSync';
 
 /** Linear ramps avoid Tone exponential wet/mix failures at or near zero. */
-function rampParam(param: { linearRampTo: (value: number, rampTime: number) => void }, value: number, time = 0.05): void {
-  param.linearRampTo(value, time);
-}
+function rampParam(
+  param: { linearRampTo?: (value: number, rampTime: number) => void; value?: unknown },
+  value: number,
+  time = 0.05,
+): void {
+  if (param == null || typeof param !== 'object') {
+    return;
+  }
 
-function isJunoPreset(preset: PlantasiaPreset): boolean {
-  return preset.botanical != null;
+  if (typeof param.linearRampTo === 'function') {
+    param.linearRampTo(value, time);
+  } else if ('value' in param) {
+    (param as { value: number }).value = value;
+  }
 }
 
 function buildOscillatorSettings(settings: SynthSettings) {
@@ -50,6 +80,7 @@ class StandardLiveVoice {
   private readonly heldNotes = new Set<number>();
   private lfoConnected = false;
   private lastSound: SoundControlValues | null = null;
+  private baseEcho = 0.22;
 
   constructor() {
     this.filter = new Tone.Filter({ frequency: 1800, type: 'lowpass', Q: 1 });
@@ -75,6 +106,8 @@ class StandardLiveVoice {
       this.filter.type = settings.filterType;
     }
 
+    this.baseEcho = settings.effects.echo ?? 0.22;
+
     this.synth.set({
       oscillator: buildOscillatorSettings(settings) as Tone.SynthOptions['oscillator'],
       envelope: {
@@ -83,7 +116,7 @@ class StandardLiveVoice {
       },
     });
 
-    rampParam(this.delay.feedback, settings.effects.echo ?? 0.22, 0.2);
+    rampParam(this.delay.feedback, this.baseEcho, 0.2);
 
     if (settings.drift != null) {
       rampParam(this.lfo.frequency, 0.04 + settings.drift * 0.08, 0.2);
@@ -96,17 +129,41 @@ class StandardLiveVoice {
 
   applySoundControls(sound: SoundControlValues): void {
     this.lastSound = sound;
+    const mold = clampMold(sound.mold);
     const params = soundSliderToParams(sound);
+    const moldParams = resolveMoldParameters(mold);
 
-    rampParam(this.masterVolume.volume, params.outputDb);
-    rampParam(this.filter.Q, params.filterQ);
+    rampParam(this.masterVolume.volume, INTERNAL_MASTER_DB);
+    rampParam(this.filter.Q, params.filterQ + moldParams.filterInstability * 0.8);
     rampParam(this.filter.frequency, params.filterHz);
     rampParam(this.delay.wet, params.delayWet);
     rampParam(this.reverb.wet, params.reverbWet);
+    rampParam(
+      this.delay.feedback,
+      Math.min(0.88, this.baseEcho + moldParams.delayFeedbackBoost),
+    );
+    rampParam(this.lfo.frequency, 0.05 + moldParams.modulationDepth * 5);
+  }
+
+  /** Apply engine Mold macro to the standard live voice graph. */
+  syncMold(mold: number): void {
+    if (this.lastSound) {
+      this.applySoundControls({ ...this.lastSound, mold });
+      return;
+    }
+
+    this.applySoundControls({
+      mold,
+      tone: 50,
+      texture: 40,
+      bloom: 35,
+    });
   }
 
   applyModulationControls(modulation: ModulationControlValues): void {
     const drift = modulation.drift / 100;
+    const energyNorm = modulation.energy / 100;
+    const mutationNorm = modulation.mutation / 100;
 
     if (drift > 0.08 && !this.lfoConnected) {
       this.lfo.connect(this.filter.frequency);
@@ -121,14 +178,16 @@ class StandardLiveVoice {
       const baseHz = this.lastSound
         ? soundSliderToParams(this.lastSound).filterHz
         : 1800;
-      this.lfo.min = Math.max(400, baseHz * 0.55);
-      this.lfo.max = Math.min(12000, baseHz * 1.35);
+      const pitchSpread = mutationNorm * 400;
+      this.lfo.min = Math.max(400, baseHz * 0.55 - pitchSpread);
+      this.lfo.max = Math.min(12000, baseHz * 1.35 + pitchSpread);
     }
 
     this.synth.set({
       envelope: {
         attack: 0.02 + (1 - modulation.growthRate / 100) * 0.6,
         release: 0.6 + (modulation.growthRate / 100) * 3,
+        sustain: 0.35 + energyNorm * 0.55,
       },
     });
   }
@@ -139,7 +198,8 @@ class StandardLiveVoice {
     }
 
     const noteName = midiToNoteName(midi);
-    const normalizedVelocity = Math.max(0.01, Math.min(1, velocity / 127));
+    const curve = getMidiStore().velocityCurve;
+    const normalizedVelocity = velocityToGain(velocity, curve);
     this.synth.triggerAttack(noteName, undefined, normalizedVelocity);
     this.heldNotes.add(midi);
   }
@@ -158,10 +218,19 @@ class StandardLiveVoice {
     this.heldNotes.clear();
   }
 
-  /** @deprecated Use applySoundControls + applyModulationControls */
+  applyPitchBend(normalized: number, rangeSemitones: number): void {
+    const cents = normalized * rangeSemitones * 100;
+    this.synth.set({ detune: cents });
+  }
+
+  applyChannelPressure(pressure: number): void {
+    const norm = pressure / 127;
+    rampParam(this.masterVolume.volume, INTERNAL_MASTER_DB - 8 + norm * 8, 0.05);
+  }
+
   applyBotanicalControls(controls: BotanicalControls): void {
     this.applySoundControls({
-      volume: controls.energy,
+      mold: controls.mold,
       tone: controls.resonance,
       texture: controls.texture,
       bloom: controls.space,
@@ -189,7 +258,7 @@ class JunoLiveVoiceRouter {
     this.enginePreset = toJunoEnginePreset(preset);
     this.synthState = buildJunoSynthState(preset);
     syncJunoBotanical(this.graph, this.synthState, this.enginePreset);
-    setJunoModeActive(true, this.synthState.volume);
+    setJunoModeActive(true);
     stopAllJunoVoices(true);
     this.stopAll();
 
@@ -200,6 +269,7 @@ class JunoLiveVoiceRouter {
 
   applySoundControls(sound: SoundControlValues): void {
     this.lastSound = sound;
+    applyJunoMold(clampMold(sound.mold));
 
     if (!this.graph || !this.enginePreset || !this.synthState) {
       return;
@@ -212,7 +282,6 @@ class JunoLiveVoiceRouter {
     this.synthState.filterQ = params.filterQ;
     this.synthState.delayMix = params.delayWet;
     this.synthState.reverbDepth = params.reverbWet;
-    this.synthState.volume = sound.volume;
 
     this.enginePreset = {
       ...this.enginePreset,
@@ -224,10 +293,14 @@ class JunoLiveVoiceRouter {
     };
 
     syncJunoBotanical(this.graph, this.synthState, this.enginePreset);
-    setJunoModeActive(true, sound.volume);
+    setJunoModeActive(true);
 
     this.graph.liveFilter.frequency.setTargetAtTime(params.filterHz, t, 0.05);
     this.graph.liveFilter.Q.setTargetAtTime(params.filterQ, t, 0.05);
+  }
+
+  syncMold(mold: number): void {
+    applyJunoMold(clampMold(mold));
   }
 
   applyModulationControls(modulation: ModulationControlValues): void {
@@ -248,7 +321,7 @@ class JunoLiveVoiceRouter {
     const freq = Tone.Frequency(noteName).toFrequency();
     const audioCtx = this.graph.audioCtx;
     const startTime = audioCtx.currentTime;
-    const velocityScale = Math.max(0.01, velocity / 127);
+    const velocityScale = velocityToGain(velocity, getMidiStore().velocityCurve);
 
     const voice = createJunoLiveVoice({
       audioCtx,
@@ -318,7 +391,7 @@ class JunoLiveVoiceRouter {
 
   applyBotanicalControls(controls: BotanicalControls): void {
     this.applySoundControls({
-      volume: controls.energy,
+      mold: controls.mold,
       tone: controls.resonance,
       texture: controls.texture,
       bloom: controls.space,
@@ -332,32 +405,215 @@ class JunoLiveVoiceRouter {
   }
 }
 
+/** Routes keyboard/MIDI through the Plantasonic flagship graph. */
+class PlantasonicLiveVoiceRouter {
+  private graph: PlantasonicGraph | null = null;
+  private enginePreset: PlantasonicEnginePreset | null = null;
+  private performance: PlantasonicPerformanceState = buildPlantasonicPerformanceState();
+  private readonly voices = new Map<number, PlantasonicLiveVoice>();
+  private tickId: number | null = null;
+  private lastSound: SoundControlValues | null = null;
+
+  async prepare(preset: PlantasiaPreset): Promise<void> {
+    this.graph = await ensurePlantasonicRuntime();
+    this.enginePreset = toPlantasonicEnginePreset(preset);
+    this.performance = buildPlantasonicPerformanceState();
+    syncPlantasonicGraph(this.graph, this.enginePreset, this.performance);
+    setPlantasonicModeActive(true);
+    stopAllPlantasonicVoices(true);
+    this.stopAll();
+
+    if (this.lastSound) {
+      this.applySoundControls(this.lastSound);
+    }
+  }
+
+  applySoundControls(sound: SoundControlValues): void {
+    this.lastSound = sound;
+    applyPlantasonicMold(clampMold(sound.mold));
+
+    if (!this.graph || !this.enginePreset) {
+      return;
+    }
+
+    syncPlantasonicGraph(this.graph, this.enginePreset, this.performance);
+  }
+
+  syncMold(mold: number): void {
+    applyPlantasonicMold(clampMold(mold));
+  }
+
+  applyModulationControls(modulation: ModulationControlValues): void {
+    const growth = modulation.energy / 100;
+    setPlantasonicPerformance({ growth });
+    this.performance = { ...this.performance, growth };
+
+    if (this.graph && this.enginePreset) {
+      syncPlantasonicGraph(this.graph, this.enginePreset, this.performance);
+    }
+  }
+
+  noteOn(midi: number, velocity: number): void {
+    if (!this.graph || !this.enginePreset || this.voices.has(midi)) {
+      return;
+    }
+
+    const noteName = midiToNoteName(midi);
+    const freq = Tone.Frequency(noteName).toFrequency();
+    const audioCtx = this.graph.audioCtx;
+    const startTime = audioCtx.currentTime;
+    const velocityScale = velocityToGain(velocity, getMidiStore().velocityCurve);
+
+    const voice = createPlantasonicLiveVoice({
+      audioCtx,
+      params: { freq, velocityScale },
+      preset: this.enginePreset,
+      performance: this.performance,
+      startTime,
+      voiceId: `plantasonic-live-${midi}-${Date.now()}`,
+      graph: this.graph,
+    });
+
+    this.voices.set(midi, voice);
+    this.startTick();
+  }
+
+  noteOff(midi: number): void {
+    const voice = this.voices.get(midi);
+    if (!voice || !this.graph) {
+      return;
+    }
+
+    releasePlantasonicVoice(voice, this.graph.audioCtx);
+    this.voices.delete(midi);
+  }
+
+  stopAll(): void {
+    if (this.graph) {
+      for (const voice of this.voices.values()) {
+        releasePlantasonicVoice(voice, this.graph.audioCtx, true);
+      }
+    }
+
+    this.voices.clear();
+    this.stopTick();
+  }
+
+  private startTick(): void {
+    if (this.tickId) {
+      return;
+    }
+
+    this.tickId = window.setInterval(() => {
+      if (!this.graph || this.voices.size === 0) {
+        this.stopTick();
+        return;
+      }
+
+      for (const voice of this.voices.values()) {
+        tickPlantasonicLivingVoice(voice, this.graph.audioCtx);
+      }
+    }, 16);
+  }
+
+  private stopTick(): void {
+    if (this.tickId) {
+      window.clearInterval(this.tickId);
+      this.tickId = null;
+    }
+  }
+
+  applyBotanicalControls(controls: BotanicalControls): void {
+    this.applySoundControls({
+      mold: controls.mold,
+      tone: controls.resonance,
+      texture: controls.texture,
+      bloom: controls.space,
+    });
+    this.applyModulationControls({
+      growthRate: controls.growth,
+      drift: controls.life,
+      mutation: controls.evolution,
+      energy: controls.density,
+    });
+  }
+}
+
+type LiveVoiceMode = 'standard' | 'juno' | 'plantasonic';
+
 /** Preset-aware live input router for keyboard and MIDI. */
 export class LiveVoiceRouter {
   private readonly standard = new StandardLiveVoice();
   private readonly juno = new JunoLiveVoiceRouter();
-  private mode: 'standard' | 'juno' = 'standard';
+  private readonly plantasonic = new PlantasonicLiveVoiceRouter();
+  private mode: LiveVoiceMode = 'standard';
 
   async preparePreset(preset: PlantasiaPreset): Promise<void> {
-    this.mode = isJunoPreset(preset) ? 'juno' : 'standard';
+    const routing = getPresetLiveRouting(preset);
 
-    if (this.mode === 'juno') {
+    if (routing === 'plantasonic') {
+      this.mode = 'plantasonic';
       this.standard.stopAll();
+      this.juno.stopAll();
+      setJunoModeActive(false);
+      await this.plantasonic.prepare(preset);
+      return;
+    }
+
+    if (routing === 'botanical') {
+      this.mode = 'juno';
+      this.standard.stopAll();
+      this.plantasonic.stopAll();
+      setPlantasonicModeActive(false);
       await this.juno.prepare(preset);
       return;
     }
 
+    this.mode = 'standard';
     this.juno.stopAll();
+    this.plantasonic.stopAll();
     setJunoModeActive(false);
+    setPlantasonicModeActive(false);
     this.standard.prepare(preset.synth);
   }
 
   applySoundControls(sound: SoundControlValues): void {
+    if (this.mode === 'plantasonic') {
+      this.plantasonic.applySoundControls(sound);
+      return;
+    }
+
+    if (this.mode === 'juno') {
+      this.juno.applySoundControls(sound);
+      return;
+    }
+
     this.standard.applySoundControls(sound);
-    this.juno.applySoundControls(sound);
+  }
+
+  /** Push Mold macro to the active live voice router (uses engine mold profile). */
+  syncMold(mold: number): void {
+    const clamped = clampMold(mold);
+
+    if (this.mode === 'plantasonic') {
+      this.plantasonic.syncMold(clamped);
+      return;
+    }
+
+    if (this.mode === 'juno') {
+      this.juno.syncMold(clamped);
+      return;
+    }
+
+    this.standard.syncMold(clamped);
   }
 
   applyModulationControls(modulation: ModulationControlValues): void {
+    if (this.mode === 'plantasonic') {
+      this.plantasonic.applyModulationControls(modulation);
+      return;
+    }
+
     if (this.mode === 'juno') {
       this.juno.applyModulationControls(modulation);
       return;
@@ -367,6 +623,11 @@ export class LiveVoiceRouter {
   }
 
   noteOn(midi: number, velocity: number): void {
+    if (this.mode === 'plantasonic') {
+      this.plantasonic.noteOn(midi, velocity);
+      return;
+    }
+
     if (this.mode === 'juno') {
       this.juno.noteOn(midi, velocity);
       return;
@@ -376,6 +637,11 @@ export class LiveVoiceRouter {
   }
 
   noteOff(midi: number): void {
+    if (this.mode === 'plantasonic') {
+      this.plantasonic.noteOff(midi);
+      return;
+    }
+
     if (this.mode === 'juno') {
       this.juno.noteOff(midi);
       return;
@@ -387,9 +653,28 @@ export class LiveVoiceRouter {
   stopAll(): void {
     this.standard.stopAll();
     this.juno.stopAll();
+    this.plantasonic.stopAll();
+  }
+
+  applyPitchBend(normalized: number): void {
+    const range = getMidiStore().pitchBendRange;
+    if (this.mode === 'standard') {
+      this.standard.applyPitchBend(normalized, range);
+    }
+  }
+
+  applyChannelPressure(pressure: number): void {
+    if (this.mode === 'standard') {
+      this.standard.applyChannelPressure(pressure);
+    }
   }
 
   applyBotanicalControls(controls: BotanicalControls): void {
+    if (this.mode === 'plantasonic') {
+      this.plantasonic.applyBotanicalControls(controls);
+      return;
+    }
+
     if (this.mode === 'juno') {
       this.juno.applyBotanicalControls(controls);
       return;

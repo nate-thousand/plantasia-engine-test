@@ -10,7 +10,7 @@ export type MidiVisualEffectKind =
   | 'textureBurst'
   | 'growthBurst'
   | 'driftBurst'
-  | 'volumeBoost'
+  | 'moldBoost'
   | 'reverbBurst'
   | 'chorusBurst'
   | 'pitchBend'
@@ -105,7 +105,7 @@ export function padActionToEffectKind(action: string): MidiVisualEffectKind {
     textureBurst: 'textureBurst',
     growthBurst: 'growthBurst',
     driftBurst: 'driftBurst',
-    volumeBoost: 'volumeBoost',
+    moldBoost: 'moldBoost',
     reverbBurst: 'reverbBurst',
     chorusBurst: 'chorusBurst',
     presetPrevious: 'presetChange',
@@ -128,7 +128,7 @@ export function padActionBoostAmount(action: string, velocity: number): number {
     case 'growthBurst':
     case 'driftBurst':
       return Math.round(12 + v * 22);
-    case 'volumeBoost':
+    case 'moldBoost':
       return Math.round(10 + v * 20);
     case 'chorusBurst':
       return Math.round(14 + v * 24);
@@ -139,7 +139,7 @@ export function padActionBoostAmount(action: string, velocity: number): number {
 
 export function padActionControlKey(
   action: string,
-): 'bloom' | 'tone' | 'texture' | 'growthRate' | 'drift' | 'volume' | 'energy' | 'mutation' | null {
+): 'bloom' | 'tone' | 'texture' | 'growthRate' | 'drift' | 'mold' | 'energy' | 'mutation' | null {
   switch (action) {
     case 'bloomBurst':
       return 'bloom';
@@ -151,8 +151,8 @@ export function padActionControlKey(
       return 'growthRate';
     case 'driftBurst':
       return 'drift';
-    case 'volumeBoost':
-      return 'volume';
+    case 'moldBoost':
+      return 'mold';
     case 'reverbBurst':
       return 'bloom';
     case 'chorusBurst':

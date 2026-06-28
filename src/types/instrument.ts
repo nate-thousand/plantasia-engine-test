@@ -1,5 +1,7 @@
 import type { ActiveNoteState } from '../stores/engineStore';
 
+import type { PresetVisualMetadata } from '../presets/types';
+
 /** Base transport / organism visual modes. */
 export type InstrumentVisualState = 'dormant' | 'active' | 'playing' | 'resting';
 
@@ -31,7 +33,7 @@ export type MidiControlSurface = {
 
 /** Normalized slider values (0–100). */
 export type SoundControlValues = {
-  volume: number;
+  mold: number;
   tone: number;
   texture: number;
   bloom: number;
@@ -48,6 +50,14 @@ export type ModulationControlValues = {
 export type PresetSummary = {
   id: string;
   name: string;
+  index: number;
+  category: string | null;
+  description: string | null;
+  mood: string | null;
+  species: string | null;
+  asciiState: string | null;
+  tags: string[];
+  visual: PresetVisualMetadata;
 };
 
 /** Parameters passed to the organism builder. */
@@ -63,8 +73,8 @@ export type OrganismVisualParams = {
   tone: number;
   /** Sound texture slider — visual density band. */
   texture: number;
-  /** Sound volume slider — visual amplitude / density intensity. */
-  volume: number;
+  /** Sound mold slider — organic decay / corruption intensity. */
+  mold: number;
   /** Modulation growth slider — visual reach extension. */
   growthRate: number;
   /** Modulation drift slider — visual asymmetry. */

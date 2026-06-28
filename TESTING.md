@@ -93,6 +93,8 @@ After **Start Audio**, the keyboard row is live (focus the page, not a form cont
 | J | B4 |
 | K | C5 |
 
+**Octave:** **Z** = down one octave, **X** = up one octave (±2 octaves max). Keyboard panel shows current range.
+
 **Verify:**
 
 1. Start Audio
@@ -133,7 +135,7 @@ After Start Audio, each key maps to a grammar-defined organism form:
 
 | Slider | Move | Expected visual |
 |--------|------|-----------------|
-| Volume | Up | Denser particle row |
+| Mold | Up | Decay / corruption overlay on ground row |
 | Tone | Up | Brighter halo symbols |
 | Texture | Up | Wider `░▒▓` band |
 | Bloom | Up | Larger bloom cross |
@@ -197,7 +199,7 @@ After Start Audio, the main visualization area renders a real-time procedural ec
 
 | CC | Control | Verify |
 |----|---------|--------|
-| 7 | Volume | Slider moves, output gain changes |
+| 7 | Mold | Slider moves, degradation macro updates |
 | 74 | Tone | Slider moves, organism halo updates |
 | 71 | Texture | Slider moves, texture band updates |
 | 73 | Bloom | Slider moves, bloom cross updates |
@@ -206,7 +208,7 @@ After Start Audio, the main visualization area renders a real-time procedural ec
 | 2 | Mutation | Slider moves, `╳` disruption |
 | 11 | Energy | Slider moves, particle density |
 
-**MPK Mini:** When device name contains "MPK", CC 1–8 also map to knobs 1–8 (Volume → Energy) if not overridden by learned mappings.
+**MPK Mini:** When device name contains "MPK", CC 1–8 also map to knobs 1–8 (Mold → Energy) if not overridden by learned mappings.
 
 Unmapped CCs appear in the MIDI control group as "Detected: CCn" and in the top overlay.
 
@@ -243,7 +245,7 @@ Pad note actions apply **only on MIDI channel 10** (factory MPK pad channel).
 | 38 (D2) | Texture burst | Moss/mutation presets add rough texture |
 | 39 (D#2) | Growth burst | Root/vine presets extend structures |
 | 40 (E2) | Drift burst | Ambient presets widen wave ripples |
-| 41 (F2) | Volume boost | Bass/root presets pulse ground line |
+| 41 (F2) | Mold boost | Decay overlay pulse on ground line |
 | 42 (F#2) | Reverb burst | Coral/field presets spawn atmosphere spores |
 | 43 (G2) | Chorus burst | Fern/vine presets add leaf drift |
 
@@ -254,7 +256,7 @@ Pads in CC mode: Bank A CC 20–27, Bank B CC 28–35 (value > 64 triggers).
 | Control | MIDI | Maps To |
 |---------|------|---------|
 | **Keys** | Ch 1, Note On/Off | Play notes only — **never changes preset** |
-| **Knobs 1–8** | CC 1–8 | Volume, Tone, Texture, Bloom, Growth, Drift, Mutation, Energy |
+| **Knobs 1–8** | CC 1–8 | Mold, Tone, Texture, Bloom, Growth, Drift, Mutation, Energy |
 | **Joystick X** | Pitch Bend | Pan drift + visual wind (no preset change) |
 | **Joystick Y** | CC 1 | Shared with Knob 1 on hardware |
 | **Pads** | Ch 10 | Transport / preset / FX (see pad tables) |
@@ -320,8 +322,9 @@ If no sound on pads, check the MPK Mini editor for pad note assignments; the app
 |------|----------|
 | Start Audio | Engine initializes, preset loads, keyboard enabled |
 | Play Note / Stop Note | Chord trigger / all voices released |
-| Preset prev/next/random | Preset name updates, sound changes |
-| Volume slider | Output gain changes |
+| Preset prev/next/random | Preset name updates, sound changes, **all sliders reset** to preset defaults, ASCII theme changes |
+| Mold slider | Degradation macro audible (bit crush, drift at high values) |
+| Rapid preset switching | No held-note bleed, no console errors, visuals reset per theme |
 
 ---
 
@@ -331,9 +334,9 @@ If no sound on pads, check the MPK Mini editor for pad note assignments; the app
 node -e "import('plantasia-sound-engine').then(m => console.log(Object.keys(m)))"
 ```
 
-Expected: exports include `PlantasiaEngine` and related public API symbols.
+Expected: exports include `PlantasiaEngine`, `presetManifest`, `getPresetMold`, Plantasonic/Juno live-voice APIs.
 
-**Constraint:** Do not modify `plantasia-sound-engine` from this repo. Live keyboard/MIDI notes use `EngineAdapter` + Tone.js PolySynth on the shared context until the engine exposes `noteOn`/`noteOff`.
+**Live voice routing:** `EngineAdapter` → `LiveVoiceRouter` selects Plantasonic, Juno, or standard Tone.js graph per preset. Chord preview and live keyboard use matching engine paths for signature presets.
 
 ---
 
@@ -347,7 +350,7 @@ Expected: exports include `PlantasiaEngine` and related public API symbols.
 | Local dev | http://localhost:5270/ | Fullscreen UI |
 | Keyboard A | After Start Audio | C4 center/root visual + sound |
 | Keyboard W / H | After Start Audio | Mutation / bloom visuals |
-| MIDI CC Volume | Move CC 7 | Volume slider + sound update |
+| MIDI CC Mold (CC 7) | Move CC 7 | Mold slider + sound update |
 | MIDI Learn | Learn → assign → reload | Mapping persists |
 | Chord cluster | Multiple keys | Harmony or tension structure |
 | Sliders | After Start Audio | Visual density changes, no console errors |

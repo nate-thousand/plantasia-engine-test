@@ -3,8 +3,8 @@ import type { VizAccessibility } from '../visualization/types';
 const STORAGE_KEY = 'plantasia-viz-accessibility';
 
 const DEFAULT_ACCESSIBILITY: VizAccessibility = {
-  density: 65,
-  animationSpeed: 75,
+  density: 42,
+  animationSpeed: 62,
   characterScale: 1,
   contrast: 70,
   reduceMotion: false,

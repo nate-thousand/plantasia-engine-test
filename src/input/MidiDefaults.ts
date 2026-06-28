@@ -1,6 +1,6 @@
 /** Targets for MIDI CC, learn, and pad routing. */
 export type MidiControlTarget =
-  | 'volume'
+  | 'mold'
   | 'tone'
   | 'texture'
   | 'bloom'
@@ -29,13 +29,13 @@ export type MidiPadAction =
   | 'textureBurst'
   | 'growthBurst'
   | 'driftBurst'
-  | 'volumeBoost'
+  | 'moldBoost'
   | 'reverbBurst'
   | 'chorusBurst';
 
 /** Slider / action targets exposed in the learn UI. */
 export const MIDI_LEARN_TARGETS: MidiControlTarget[] = [
-  'volume',
+  'mold',
   'tone',
   'texture',
   'bloom',
@@ -52,7 +52,7 @@ export const MIDI_LEARN_TARGETS: MidiControlTarget[] = [
 ];
 
 export const MIDI_LEARN_TARGET_LABELS: Record<MidiControlTarget, string> = {
-  volume: 'Volume',
+  mold: 'Mold',
   tone: 'Tone',
   texture: 'Texture',
   bloom: 'Bloom',
@@ -70,7 +70,7 @@ export const MIDI_LEARN_TARGET_LABELS: Record<MidiControlTarget, string> = {
 
 /** Standard MIDI CC → Plantasia control (GM / common synth layout). */
 export const STANDARD_CC_MAP: Record<number, MidiControlTarget> = {
-  7: 'volume',
+  7: 'mold',
   74: 'tone',
   71: 'texture',
   73: 'bloom',
@@ -85,7 +85,7 @@ export const STANDARD_CC_MAP: Record<number, MidiControlTarget> = {
  * Learned mappings always override this profile.
  */
 export const MPK_MINI_KNOB_CC_MAP: Record<number, MidiControlTarget> = {
-  1: 'volume',
+  1: 'mold',
   2: 'tone',
   3: 'texture',
   4: 'bloom',
@@ -124,7 +124,7 @@ export function isSliderTarget(target: MidiControlTarget): target is keyof typeo
 }
 
 export const SLIDER_TARGET_KEYS = {
-  volume: true,
+  mold: true,
   tone: true,
   texture: true,
   bloom: true,

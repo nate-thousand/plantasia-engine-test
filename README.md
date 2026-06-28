@@ -11,7 +11,7 @@ This repository is **not** the sound engine. Synthesis, presets, and Tone.js gra
 - Engine integration through `EngineAdapter` (React never calls the engine directly)
 - Document architecture, brand grammar, and development workflow
 
-**Current phase:** fully MIDI-controllable instrument — transport, presets, sliders, keyboard (A–K), Web MIDI notes/CCs/pads, and MIDI Learn.
+**Current phase:** production-quality instrument — preset sync, Mold macro, Plantasonic/Juno live voice, MIDI Learn, and ASCII visualization.
 
 ## Technology
 
@@ -39,6 +39,7 @@ plantasia-engine-test/
 │   ├── types/              Instrument types
 │   └── visuals/organism/   Procedural ASCII organism
 ├── ROADMAP.md
+├── PRESETS.md              Sound World system documentation
 ├── TESTING.md
 └── README.md
 ```
@@ -54,7 +55,14 @@ src/input/                     Presets, synth graph, Tone.js
 UI / ASCII visuals             No React, no UI, no visuals
 ```
 
-The application imports the engine via GitHub (see `package.json`). For local co-development, use `npm link ../plantasia-sound-engine` — see [TESTING.md](./TESTING.md).
+The application consumes `plantasia-sound-engine` as an npm dependency:
+
+| Environment | `package.json` value |
+|-------------|----------------------|
+| Local co-dev | `"file:../plantasia-sound-engine"` (current) |
+| CI / Vercel | `"github:nate-thousand/plantasia-sound-engine#v0.2.0"` after engine release |
+
+After changing the engine, run `npm run build` in the engine repo, then `npm install` here. See [TESTING.md](./TESTING.md).
 
 ## Development Setup
 
@@ -82,7 +90,7 @@ npm run preview     # Serve production build locally
 2. **Computer keyboard:** A–K row maps to C4–C5 (see [TESTING.md](./TESTING.md))
 3. **MIDI:** Click **Connect**, select your device (e.g. Akai MPK Mini)
    - Keys trigger notes with velocity → sound + ASCII visuals
-   - Knobs send CC messages → sliders update (volume, tone, texture, bloom, growth, drift, mutation, energy)
+   - Knobs send CC messages → sliders update (mold, tone, texture, bloom, growth, drift, mutation, energy)
    - Pads trigger transport/preset actions (default map for MPK Mini)
    - **Learn** mode: click Learn → select a control → move a knob to assign
 4. Use preset selector and sliders as secondary controls (also MIDI-mappable)
@@ -91,7 +99,7 @@ npm run preview     # Serve production build locally
 
 | CC | Control |
 |----|---------|
-| 7 | Volume |
+| 7 | Mold |
 | 74 | Tone |
 | 71 | Texture |
 | 73 | Bloom |

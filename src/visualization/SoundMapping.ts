@@ -1,4 +1,5 @@
 import type { ModulationControlValues, SoundControlValues } from '../types/instrument';
+import type { PlantasiaPreset } from 'plantasia-sound-engine';
 import { soundSliderToParams } from '../audio/soundControls';
 import type { PresetTheme, SoundVizParams } from './types';
 import { themeFilterOpenness } from './ThemeBehaviors';
@@ -7,7 +8,7 @@ import { themeFilterOpenness } from './ThemeBehaviors';
 export function buildSoundVizParams(
   sound: SoundControlValues,
   modulation: ModulationControlValues,
-  presetId: string,
+  preset: PlantasiaPreset | null,
   theme?: PresetTheme,
 ): SoundVizParams {
   const audio = soundSliderToParams(sound);
@@ -24,7 +25,7 @@ export function buildSoundVizParams(
   const openness = theme ? themeFilterOpenness(theme, filterCutoff) : filterCutoff / 100;
 
   return {
-    volume: sound.volume,
+    mold: sound.mold,
     tone: sound.tone,
     texture: sound.texture,
     bloom: sound.bloom * (theme ? 0.5 + theme.rhythm : 1),
@@ -45,26 +46,31 @@ export function buildSoundVizParams(
     decay: 0.2 + bloomNorm * 0.5,
     sustain: 0.4 + energyNorm * 0.5,
     release: 0.5 + growthNorm * 3,
-    oscillatorType: inferOscillatorType(presetId, sound, modulation),
+    oscillatorType: inferOscillatorType(preset, sound, modulation),
   };
 }
 
 function inferOscillatorType(
-  presetId: string,
+  preset: PlantasiaPreset | null,
   sound: SoundControlValues,
   modulation: ModulationControlValues,
 ): SoundVizParams['oscillatorType'] {
-  if (presetId.includes('crystal') || presetId.includes('mutation')) {
+  const engineOsc = preset?.synth?.oscillator;
+  if (engineOsc === 'sawtooth' || engineOsc === 'square') {
+    return 'analog';
+  }
+  if (engineOsc === 'triangle') {
+    return 'pad';
+  }
+  if (engineOsc === 'sine') {
+    return preset?.asciiState === 'mutation' ? 'fm' : 'lead';
+  }
+
+  if (preset?.asciiState === 'mutation') {
     return 'fm';
   }
-  if (presetId.includes('mycelium') || presetId.includes('coral')) {
+  if (preset?.asciiState === 'mycelium' || preset?.asciiState === 'ecosystem') {
     return 'granular';
-  }
-  if (presetId.includes('root') || presetId.includes('bass')) {
-    return 'bass';
-  }
-  if (presetId.includes('bloom') || presetId.includes('flower') || presetId.includes('juno')) {
-    return 'lead';
   }
   if (sound.texture > 70) {
     return 'noise';

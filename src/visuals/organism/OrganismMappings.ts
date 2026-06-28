@@ -314,12 +314,12 @@ export function buildOrganismFromState(state: OrganismState): Organism {
   }
 
   applyToneVisuals(organism, state.sound, 'core');
-  applyEnergyVisuals(organism, state.modulation, state.sound.volume, 'core');
+  applyEnergyVisuals(organism, state.modulation, state.sound.mold, 'core');
   applyInteractionBoost(organism, state);
 
   return organism;
 }
 
 export { mapNotesToVisuals, velocityToGlyphs } from './NoteVisualMapper';
-export { volumeIntensity, toneBrightnessSymbol } from './ToneVisualMapper';
+export { moldDecayIntensity, toneBrightnessSymbol } from './ToneVisualMapper';
 export { energyParticleGlyphs } from './EnergyVisualMapper';

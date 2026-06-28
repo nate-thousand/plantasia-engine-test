@@ -1,6 +1,8 @@
 import { densityChar } from './CharacterPalette';
 import { paintBotanicalScene } from './BotanicalScenes';
+import { paintInteractionOverlays, paintPresetTransitionOverlay } from './InteractionOverlays';
 import { pickThemeChar } from './ThemeCharacters';
+import type { VisualEnergyBehavior } from './VisualEnergy';
 import type { SliderVizState } from './SliderVisualEffects';
 import type { BranchSegment, PresetTheme, VizParticle } from './types';
 
@@ -64,6 +66,16 @@ export class AsciiRenderer {
     animSpeed: number,
     sliders: SliderVizState,
     interactionPulse: number,
+    visualEnergy: number,
+    pointer: {
+      gridX: number;
+      gridY: number;
+      active: boolean;
+      activity: number;
+      velocity: number;
+      isTouch: boolean;
+    },
+    energyBehavior: VisualEnergyBehavior,
   ): void {
     paintBotanicalScene({
       width: this.width,
@@ -75,6 +87,10 @@ export class AsciiRenderer {
       animSpeed,
       sliders,
       interactionPulse,
+      visualEnergy,
+      asciiDensityScale: energyBehavior.density,
+      pointer,
+      energyBehavior,
       paint: (x, y, char, priority) => this.setChar(x, y, char, priority),
     });
   }
@@ -129,7 +145,7 @@ export class AsciiRenderer {
     const y = Math.round(centerY);
     const rippleChar = theme.motionStyle === 'horizon-wave' ? '~' : pickThemeChar(theme, y);
 
-    for (let x = 0; x < this.width; x += 1) {
+    for (let x = 0; x < this.width; x += 2) {
       const wave =
         theme.motionStyle === 'breathing'
           ? Math.sin(x * 0.25 + time * 1.5) * lfoDepth
@@ -162,11 +178,11 @@ export class AsciiRenderer {
 
     for (let i = 0; i < spectrum.length; i += 1) {
       const value = Math.min(1, spectrum[i] * (0.6 + amplitude * 1.4));
-      const barHeight = Math.round(value * 8);
+      const barHeight = Math.round(value * 6);
       const x = Math.floor(i * columnWidth + columnWidth / 2);
 
       for (let h = 0; h < barHeight; h += 1) {
-        const charIndex = Math.min(chars.length - 1, Math.floor((h / 8) * chars.length));
+        const charIndex = Math.min(chars.length - 1, Math.floor((h / 6) * chars.length));
         this.setChar(x, baseY - h, chars[charIndex], 5);
       }
     }
@@ -234,6 +250,41 @@ export class AsciiRenderer {
         this.setChar(x, groundY, char, 4);
       }
     }
+  }
+
+  paintInteractionOverlays(
+    theme: PresetTheme,
+    time: number,
+    interactionPulse: number,
+    energyBehavior: VisualEnergyBehavior,
+  ): void {
+    paintInteractionOverlays({
+      width: this.width,
+      height: this.height,
+      theme,
+      time,
+      pulse: interactionPulse,
+      jitter: energyBehavior.jitter,
+      spread: energyBehavior.spread,
+      paint: (x, y, char, priority) => this.setChar(x, y, char, priority),
+    });
+  }
+
+  paintPresetTransition(
+    theme: PresetTheme,
+    time: number,
+    progress: number,
+    energyBehavior: VisualEnergyBehavior,
+  ): void {
+    paintPresetTransitionOverlay({
+      width: this.width,
+      height: this.height,
+      theme,
+      time,
+      progress,
+      distortion: energyBehavior.distortion,
+      paint: (x, y, char, priority) => this.setChar(x, y, char, priority),
+    });
   }
 
   setChar(x: number, y: number, char: string, priority: number): void {
@@ -310,13 +361,4 @@ function themeCharForBackground(
   return densityChar(density * (contrast / 100), x + y * 100 + seed);
 }
 
-export function computeGridDimensions(
-  containerWidth: number,
-  containerHeight: number,
-  charWidth: number,
-  charHeight: number,
-): GridDimensions {
-  const width = Math.max(1, Math.floor(containerWidth / charWidth));
-  const height = Math.max(1, Math.floor(containerHeight / charHeight));
-  return { width, height };
-}
+export { computeGridDimensions } from './viewportLayout';

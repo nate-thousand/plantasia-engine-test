@@ -16,9 +16,9 @@ export type EnergyVisualGlyphs = {
   pathGlyphs: GlyphPoint[];
 };
 
-/** Energy + volume → triple particle rows + side columns. */
-export function energyParticleGlyphs(energy: number, volume: number): EnergyVisualGlyphs {
-  const combined = Math.min(100, Math.round(energy * 0.65 + volume * 0.35));
+/** Energy + mold → triple particle rows + side columns. */
+export function energyParticleGlyphs(energy: number, mold: number): EnergyVisualGlyphs {
+  const combined = Math.min(100, Math.round(energy * 0.65 + mold * 0.35));
   const span = Math.round((combined / 100) * 16);
   const rows = [GRID_CENTER_Y + 5, GRID_CENTER_Y + 6, GRID_CENTER_Y + 7];
   const glyphs: GlyphPoint[] = [];
@@ -121,14 +121,14 @@ export function mutationDisruptionGlyphs(mutation: number): EnergyVisualGlyphs |
 export function applyEnergyVisuals(
   organism: Organism,
   modulation: ModulationControlValues,
-  volume: number,
+  mold: number,
   anchorNodeId: string,
 ): void {
   const growth = growthReachGlyphs(modulation.growthRate);
   const mutation = mutationDisruptionGlyphs(modulation.mutation);
 
   const layers: EnergyVisualGlyphs[] = [
-    energyParticleGlyphs(modulation.energy, volume),
+    energyParticleGlyphs(modulation.energy, mold),
     ...(growth ? [growth] : []),
     ...driftAsymmetryGlyphs(modulation.drift),
     ...(mutation ? [mutation] : []),

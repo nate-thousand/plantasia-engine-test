@@ -16,6 +16,10 @@ import {
   themeSwayAmplitude,
   themeVerticalBias,
 } from './ThemeBehaviors';
+import {
+  getThemeReactiveProfile,
+  themePlantGrowthBoost,
+} from './ThemeReactiveBehavior';
 import type { AudioVizFeedback } from '../audio/visualization/AudioTap';
 import type {
   BranchSegment,
@@ -157,13 +161,34 @@ export function updatePlant(
   gridWidth: number,
   gridHeight: number,
   reduceMotion: boolean,
+  audio?: AudioVizFeedback,
 ): void {
   plant.age += dt;
+
+  const profile = getThemeReactiveProfile(theme.visualMetadata);
+  const silentAudio: AudioVizFeedback = {
+    amplitude: 0,
+    peak: 0,
+    bass: 0,
+    mid: 0,
+    treble: 0,
+    brightness: 0,
+    isActive: false,
+    spectrum: [],
+    waveform: [],
+  };
+  const reactiveBoost = themePlantGrowthBoost(
+    profile,
+    plant.midi,
+    plant.velocity,
+    audio ?? silentAudio,
+  );
 
   const growthSpeed =
     velocityToGrowthSpeed(plant.velocity) *
     themeAttackMultiplier(theme, sound.attack) *
     theme.animationSpeed *
+    reactiveBoost *
     (0.5 + sound.growthRate / 100);
 
   if (plant.phase === 'growing') {

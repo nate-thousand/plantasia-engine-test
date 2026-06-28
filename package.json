@@ -8,12 +8,13 @@
     "start": "vite",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --noEmit",
+    "validate:visual-energy": "node scripts/validate-visual-energy.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
   },
   "dependencies": {
     "bootstrap": "5.0.2",
-    "plantasia-sound-engine": "github:nate-thousand/plantasia-sound-engine",
+    "plantasia-sound-engine": "github:nate-thousand/plantasia-sound-engine#v0.2.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "tone": "^15.0.4"

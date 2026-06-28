@@ -17,9 +17,9 @@ export type ToneVisualGlyphs = {
   pathGlyphs: GlyphPoint[];
 };
 
-/** Volume (0–100) → visual amplitude / density intensity multiplier. */
-export function volumeIntensity(volume: number): number {
-  return 0.35 + (volume / 100) * 0.65;
+/** Mold (0–100) → visual decay / corruption intensity multiplier. */
+export function moldDecayIntensity(mold: number): number {
+  return 0.15 + (mold / 100) * 0.85;
 }
 
 /** Tone (0–100) → brightness emphasis on active nodes. */
@@ -33,21 +33,21 @@ export function toneBrightnessSymbol(tone: number): GrammarSymbol {
   return GRAMMAR_SYMBOLS.softParticle;
 }
 
-/** Volume rings + lower particle cascade. */
-export function volumeAmplitudeGlyphs(volume: number): ToneVisualGlyphs {
-  const span = Math.round((volume / 100) * 10);
+/** Mold decay rings + corruption scatter. */
+export function moldDecayGlyphs(mold: number): ToneVisualGlyphs {
+  const span = Math.round((mold / 100) * 10);
   const rings =
-    volume >= 50
-      ? ringGlyphs(GRID_CENTER_X, GRID_CENTER_Y, 3 + Math.round(volume / 25), GRAMMAR_SYMBOLS.densityMedium)
+    mold >= 50
+      ? ringGlyphs(GRID_CENTER_X, GRID_CENTER_Y, 3 + Math.round(mold / 25), GRAMMAR_SYMBOLS.densityMedium)
       : [];
 
   return {
-    id: 'tone-volume-amplitude',
+    id: 'tone-mold-decay',
     pathGlyphs: [
       ...rings,
       ...horizontalBandGlyphs(GRID_CENTER_Y + 5, span, GRAMMAR_SYMBOLS.densityLow, true),
       ...horizontalBandGlyphs(GRID_CENTER_Y + 6, Math.max(2, span - 2), GRAMMAR_SYMBOLS.softParticle, true),
-      ...scatterFieldGlyphs(GRID_CENTER_X, GRID_CENTER_Y + 4, Math.round(volume / 8), span, 2, GRAMMAR_SYMBOLS.seed),
+      ...scatterFieldGlyphs(GRID_CENTER_X, GRID_CENTER_Y + 4, Math.round(mold / 8), span, 2, GRAMMAR_SYMBOLS.seed),
     ],
   };
 }
@@ -131,7 +131,7 @@ export function applyToneVisuals(
   anchorNodeId: string,
 ): void {
   const layers = [
-    volumeAmplitudeGlyphs(sound.volume),
+    moldDecayGlyphs(sound.mold),
     textureBandGlyphs(sound.texture),
     bloomStructureGlyphs(sound.bloom),
     toneHighlightGlyphs(sound.tone),

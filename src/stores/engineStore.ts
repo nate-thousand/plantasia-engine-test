@@ -1,3 +1,4 @@
+import { pulseVisualEnergy } from './visualEnergyStore';
 import type { MidiSurfaceState } from '../types/instrument';
 import { formatNoteLabel } from '../input/noteMap';
 
@@ -10,6 +11,7 @@ export type ActiveNoteState = {
   midi: number;
   velocity: number;
   label: string;
+  source: 'keyboard' | 'midi';
 };
 
 export type EngineStoreState = {
@@ -72,10 +74,16 @@ function averageVelocity(notes: ActiveNoteState[]): number {
   return Math.round((sum / notes.length / 127) * 100);
 }
 
-export function registerNoteOn(midi: number, velocity: number): void {
+export function registerNoteOn(
+  midi: number,
+  velocity: number,
+  source: 'keyboard' | 'midi' = 'keyboard',
+): void {
   const label = formatNoteLabel(midi);
   const existing = state.activeNotes.filter((note) => note.midi !== midi);
-  const activeNotes = [...existing, { midi, velocity, label }];
+  const activeNotes = [...existing, { midi, velocity, label, source }];
+
+  pulseVisualEnergy(source, velocity);
 
   patchEngineStore({
     activeNotes,

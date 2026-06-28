@@ -6,6 +6,7 @@ import {
   resetAudioControls,
   setBotanicalState,
 } from './controls';
+import { clampMold, syncMoldProfile } from './moldSync';
 import { LiveVoiceRouter } from './liveVoice';
 import { startAudioTap } from './visualization/AudioTap';
 
@@ -62,6 +63,7 @@ class EngineAdapter {
       return;
     }
 
+    syncMoldProfile(preset);
     await this.liveVoice.preparePreset(preset);
     this.reapplyStoredControls();
 
@@ -115,9 +117,12 @@ class EngineAdapter {
     sound: SoundControlValues,
     modulation: ModulationControlValues,
   ): void {
-    const controls = mapControlSurfaceToBotanical(sound, modulation);
+    const mold = clampMold(sound.mold);
+    const controls = mapControlSurfaceToBotanical({ ...sound, mold }, modulation);
     setBotanicalState(controls);
     this.getEngine().applyBotanicalControls(controls);
+    this.getEngine().setMold(mold);
+    this.liveVoice.syncMold(mold);
   }
 
   noteOn(midi: number, velocity = 100): void {
@@ -142,6 +147,22 @@ class EngineAdapter {
     this.getEngine().stop();
     this.liveVoice.stopAll();
     console.info(`${LOG_PREFIX} All notes stopped`);
+  }
+
+  applyChannelPressure(pressure: number): void {
+    if (!this.audioStarted) {
+      return;
+    }
+
+    this.liveVoice.applyChannelPressure(pressure);
+  }
+
+  applyPitchBend(normalized: number): void {
+    if (!this.audioStarted) {
+      return;
+    }
+
+    this.liveVoice.applyPitchBend(normalized);
   }
 
   triggerChord(): void {

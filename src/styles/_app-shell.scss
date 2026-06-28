@@ -28,19 +28,26 @@ body,
 
 .organism-view,
 .ascii-canvas-view {
-  align-items: stretch;
+  align-items: center;
   display: flex;
   height: 100%;
-  justify-content: stretch;
+  justify-content: center;
   overflow: hidden;
   width: 100%;
+}
+
+.ascii-canvas-view__scale-wrap {
+  flex: none;
+  transform-origin: center center;
+  will-change: transform;
 }
 
 .organism-view__ascii,
 .ascii-canvas-view__frame {
   box-sizing: border-box;
   color: var(--plantasia-color-organism);
-  flex: 1 1 auto;
+  display: block;
+  flex: none;
   font-family: var(--plantasia-font-mono);
   height: 100%;
   letter-spacing: 0;
@@ -48,8 +55,7 @@ body,
   opacity: calc(0.72 + var(--ascii-contrast, 0.7) * 0.28);
   overflow: hidden;
   padding: 0;
-  text-align: center;
-  transform-origin: center center;
+  text-align: left;
   white-space: pre;
   width: 100%;
   will-change: contents;
@@ -68,37 +74,6 @@ body,
   .instrument-stage {
     padding: 0;
   }
-}
-
-.top-overlay {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-  left: 0;
-  padding: 1.25rem;
-  pointer-events: none;
-  position: absolute;
-  right: 0;
-  top: 0;
-  z-index: 2;
-}
-
-.top-overlay__title {
-  color: var(--plantasia-color-text-secondary);
-  font-family: var(--plantasia-font-mono);
-  font-size: 0.6875rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.top-overlay__status {
-  color: var(--plantasia-color-primary);
-  display: flex;
-  font-family: var(--plantasia-font-mono);
-  font-size: 0.6875rem;
-  gap: 1rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .instrument-footer {

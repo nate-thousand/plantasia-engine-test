@@ -1,5 +1,6 @@
 /** Procedural ASCII visualization engine — public API. */
 export { AsciiEngine } from './AsciiEngine';
+export type { GridDimensions } from './viewportLayout';
 export { AsciiRenderer, computeGridDimensions } from './AsciiRenderer';
 export { CHARACTER_PALETTE, pickChar, pickFromCategories } from './CharacterPalette';
 export { ParticleSystem } from './ParticleSystem';
@@ -18,7 +19,6 @@ export {
 } from './PresetVisualThemes';
 export type { PresetVisualThemeDefinition } from './PresetVisualThemes';
 export { ThemeTransition } from './ThemeTransition';
-export { PRESET_VISUAL_THEMES } from './PresetVisualThemes';
 export { buildSoundVizParams } from './SoundMapping';
 export { applyAudioFeedback, audioParticleRate, noteAudioIntensity } from './AudioFeedback';
 export { paintBotanicalScene } from './BotanicalScenes';

@@ -19,6 +19,10 @@ function emptyStore(): StoredMidiMappings {
   return { version: 1, mappings: [] };
 }
 
+function migrateVolumeTarget(target: MidiControlTarget): MidiControlTarget {
+  return target === ('volume' as MidiControlTarget) ? 'mold' : target;
+}
+
 export function loadMidiMappings(): StoredMidiMappings {
   if (typeof localStorage === 'undefined') {
     return emptyStore();
@@ -33,6 +37,22 @@ export function loadMidiMappings(): StoredMidiMappings {
     const parsed = JSON.parse(raw) as StoredMidiMappings;
     if (parsed.version !== 1 || !Array.isArray(parsed.mappings)) {
       return emptyStore();
+    }
+
+    let migrated = false;
+    const mappings = parsed.mappings.map((entry) => {
+      const nextTarget = migrateVolumeTarget(entry.target);
+      if (nextTarget !== entry.target) {
+        migrated = true;
+        return { ...entry, target: nextTarget };
+      }
+      return entry;
+    });
+
+    if (migrated) {
+      const next = { version: 1 as const, mappings };
+      saveMidiMappings(next);
+      return next;
     }
 
     return parsed;

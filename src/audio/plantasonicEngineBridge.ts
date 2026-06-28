@@ -1,0 +1,17 @@
+export {
+  applyPlantasonicMold,
+  buildPlantasonicPerformanceState,
+  createPlantasonicLiveVoice,
+  ensurePlantasonicRuntime,
+  releasePlantasonicVoice,
+  setPlantasonicModeActive,
+  setPlantasonicPerformance,
+  stopAllPlantasonicVoices,
+  syncPlantasonicGraph,
+  tickPlantasonicLivingVoice,
+  toPlantasonicEnginePreset,
+  type PlantasonicEnginePreset,
+  type PlantasonicGraph,
+  type PlantasonicLiveVoice,
+  type PlantasonicPerformanceState,
+} from 'plantasia-sound-engine';

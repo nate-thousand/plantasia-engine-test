@@ -1,6 +1,6 @@
 type ControlButtonProps = {
   label: string;
-  onClick?: () => void;
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   active?: boolean;
   placeholder?: boolean;

@@ -8,11 +8,9 @@ export {
   syncJunoBotanical,
   tickJunoLivingVoice,
   toJunoEnginePreset,
-} from '../../node_modules/plantasia-sound-engine/dist/synths/junoFlowersAudio.js';
-
-export type {
-  JunoBotanicalGraph,
-  JunoEnginePreset,
-  JunoLiveVoice,
-  JunoSynthState,
-} from '../../node_modules/plantasia-sound-engine/dist/synths/junoFlowersAudio.js';
+  applyJunoMold,
+  type JunoBotanicalGraph,
+  type JunoEnginePreset,
+  type JunoLiveVoice,
+  type JunoSynthState,
+} from 'plantasia-sound-engine';

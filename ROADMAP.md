@@ -179,7 +179,7 @@ Fullscreen Plantasia instrument with a modular bottom control dock — not a dev
 - [x] Fullscreen control dock (`src/components/controls/ControlDock.tsx`)
 - [x] Transport controls — Start Audio, Play, Stop, Hold (placeholder)
 - [x] Preset controls — selector, prev, next, random
-- [x] Sound controls — volume, tone, texture, bloom sliders
+- [x] Sound controls — mold, tone, texture, bloom sliders
 - [x] Modulation controls — growth, drift, mutation, energy sliders
 - [x] MIDI placeholders — status, learn, device selector
 - [x] Top overlay — title, audio state, preset name, MIDI state
@@ -196,7 +196,7 @@ Fullscreen Plantasia instrument with a modular bottom control dock — not a dev
 | Presets | `src/audio/presets.ts` |
 | Organism mapping | `src/visuals/organism/InstrumentVisualState.ts` |
 
-Placeholder mappings (volume, tone, texture, growth, drift, hold, MIDI) are marked in hook comments for future engine wiring.
+Placeholder mappings (mold, tone, texture, growth, drift, hold, MIDI) are wired through the engine adapter.
 
 ---
 
@@ -206,7 +206,7 @@ Placeholder mappings (volume, tone, texture, growth, drift, hold, MIDI) are mark
 
 ### Goals
 
-Wire transport and preset controls to the engine. Volume drives output gain. Other sliders update the organism visually first; sound mapping follows in a later pass.
+Wire transport and preset controls to the engine. Mold drives the degradation macro. Other sliders update synthesis and organism visuals.
 
 ### Tasks
 
@@ -214,9 +214,8 @@ Wire transport and preset controls to the engine. Volume drives output gain. Oth
 - [x] Play Note triggers `triggerChord()` through engine wrapper
 - [x] Stop Note releases voices via engine wrapper
 - [x] Preset selector loads bundled engine presets (`playPreset`)
-- [x] Volume slider maps to output gain via `applyBotanicalControls`
-- [x] Tone, Texture, Bloom, Growth, Drift, Mutation, Energy update organism visuals
-- [ ] Tone / Texture / Bloom / Growth / Drift / Mutation / Energy → engine parameters (deferred)
+- [x] Mold slider maps to engine macro via `applyBotanicalControls` (`controls.mold`)
+- [x] Tone, Texture, Bloom, Growth, Drift, Mutation, Energy update synthesis and organism visuals
 
 ### Architecture
 
@@ -226,14 +225,14 @@ Wire transport and preset controls to the engine. Volume drives output gain. Oth
 | Play Note | `playEngineNote()` | playing |
 | Stop Note | `stopEngineNote()` | resting |
 | Preset | `loadPresetAtIndex()` | preset name overlay |
-| Volume | `setOutputVolume()` | — |
-| Tone | deferred | harmonic halo |
-| Texture | deferred | density band |
-| Bloom | deferred | flower cross |
-| Growth | deferred | upward reach |
-| Drift | deferred | asymmetric particles |
-| Mutation | deferred | ╳ disruption |
-| Energy | deferred | particle row |
+| Mold | `applyBotanicalControls({ mold })` | decay / corruption overlay |
+| Tone | `applyBotanicalControls` | harmonic halo |
+| Texture | `applyBotanicalControls` | density band |
+| Bloom | `applyBotanicalControls` | flower cross |
+| Growth | `applyBotanicalControls` | upward reach |
+| Drift | `applyBotanicalControls` | asymmetric particles |
+| Mutation | `applyBotanicalControls` | ╳ disruption |
+| Energy | `applyBotanicalControls` | particle row |
 
 ---
 
@@ -285,7 +284,7 @@ Make the ASCII organism visually respond to actual musical input — notes, velo
 - [x] Octave → vertical placement; velocity → density glyphs (·/•/● and ░/▒/▓)
 - [x] Keyboard (A–K) and MIDI notes share the same visual system via `engineStore.activeNotes`
 - [x] Chord / interval awareness — consonance → harmony structures, dissonance → tension, clusters → density
-- [x] Slider → visual mapping (volume, tone, texture, bloom, growth, drift, mutation, energy)
+- [x] Slider → visual mapping (mold, tone, texture, bloom, growth, drift, mutation, energy)
 - [x] Preset visual identity fallbacks from preset id / category
 - [x] Pipeline: Input → EngineStore → OrganismState → Visual Mapper → Renderer
 - [x] Minimal overlay feedback — note label, active note count, visual state name
@@ -296,7 +295,7 @@ Make the ASCII organism visually respond to actual musical input — notes, velo
 |--------|------|
 | `OrganismState.ts` | Composed visual state + harmony / life-state classification |
 | `NoteVisualMapper.ts` | Note → pitch form, octave offset, velocity density |
-| `ToneVisualMapper.ts` | Volume, tone, texture, bloom → glyphs |
+| `ToneVisualMapper.ts` | Mold, tone, texture, bloom → glyphs |
 | `EnergyVisualMapper.ts` | Growth, drift, mutation, energy → glyphs |
 | `OrganismMappings.ts` | Chord structures, preset identity, organism graph assembly |
 | `InstrumentVisualState.ts` | Hook-facing facade + overlay indicators |
@@ -456,6 +455,121 @@ AsciiCanvasView → fullscreen <pre>
 - [x] MIDI controls use shared group styling
 - [x] No sound behavior changed
 - [x] No sound engine code modified
+
+## Milestone 16 — Mold Macro & Engine Preset Registry
+
+**Status:** Complete
+
+### Completed
+
+- [x] Added flagship **Plantasonic** preset (Signature category)
+- [x] Dynamic preset registry from `plantasia-sound-engine`
+- [x] Preset metadata architecture (category, species, asciiState, visual metadata)
+- [x] Public preset API via engine registry
+- [x] Plantasonic available through engine registry
+- [x] **Volume replaced by Mold macro** in creative UI
+- [x] Mold added as a first-class engine parameter (MIDI CC 7, Learn, automation, preset defaults)
+
+### Planned — future sound-world presets
+
+Bloom, Roots, Canopy, Fern, Moss, Rainforest, Desert, Winter, Night Bloom, Aurora, Mycelium
+
+### Planned — future engine work
+
+Expanded procedural sound worlds, visual metadata, ASCII theme metadata, motion metadata, unified audio/visual preset system, procedural preset variation, additional creative macro controls
+
+### Milestone: Signature Sound Worlds — completed
+
+- [x] Engine `visual`, `midi`, `tags`, `controls` schema on `PlantasiaPreset`
+- [x] All 11 presets populated with Sound World metadata
+- [x] Metadata-first theme resolution (`visual.asciiTheme`)
+- [x] Distinct ASCII templates: moss, canopy, rainforest, desert, winter, night-bloom
+- [x] Per-world macro defaults via `getPresetControls()`
+- [x] Per-preset MIDI defaults on load
+- [x] Theme-specific audio-reactive behavior
+- [x] `PRESETS.md` documentation
+
+### Milestone 12B — Unified Visual Energy System — complete
+
+Single normalized `visualEnergy` (0–1) drives all ASCII reactivity from every input source, with or without audio.
+
+#### Architecture
+
+```
+Input hooks → visualEnergyStore (per-source impulses)
+     ↓
+useAsciiVisualization tick → tickVisualEnergy() → behaviorFromVisualEnergy()
+     ↓
+VizInputSnapshot.energy + energyBehavior → AsciiEngine → IdleScenePainters / overlays / particles
+```
+
+#### Source channels (each 0–1, smoothed independently)
+
+| Source | Trigger | Sustain |
+|--------|---------|---------|
+| `audioEnergy` | Audio tap amplitude/peak | While music plays |
+| `midiEnergy` | MIDI note on + velocity | While MIDI notes held |
+| `keyboardEnergy` | Keyboard note on + velocity | While keyboard notes held |
+| `pointerEnergy` | Mouse move speed | Decays when still |
+| `touchEnergy` | Touch drag (mobile) | Decays on lift |
+| `controlEnergy` | Slider/knob change | Slider position + delta |
+| `presetEnergy` | Preset change | ~1.4s transition decay |
+| `uiEnergy` | Play/stop/button presses | Fast decay |
+
+**Combined:** weighted sum → `visualEnergy` (cap 1.0). Weights: audio 28%, midi/keyboard 16% each, pointer/touch 10% each, control 8%, preset 7%, ui 5%.
+
+**Smoothing:** per-source fast rise / slow fall; impulse bursts decay exponentially. Respects `reduceMotion`.
+
+#### Behavior mapping (`behaviorFromVisualEnergy`)
+
+| Knob | Low energy | High energy |
+|------|------------|-------------|
+| density | 0.32 sparse | 1.35 bloom |
+| speed | slow breathe | 1.85× motion |
+| spread | tight | wide trails |
+| brightness | dim | bright |
+| jitter | calm | corruption |
+| distortion | clean | mold-heavy |
+| growthRate | minimal | note bloom |
+| rareEventRate | rare | pulses/flares |
+
+#### Preset transitions
+
+`paintPresetTransitionOverlay()` — theme-specific: spore burst (default), orbit rings (plantasonic), glitch tear (mutation).
+
+#### Adding a new energy source
+
+1. Add key to `EnergySourceKey` in `VisualEnergy.ts`
+2. Add weight in `COMBINE_WEIGHTS` and decay/rise rates
+3. Add sustain logic in `sustainTargets()`
+4. Call `pulseVisualEnergy('yourSource', amount)` from the input hook
+5. Extend validation in `scripts/validate-visual-energy.mjs`
+
+#### Files
+
+- `src/visualization/VisualEnergy.ts` — model + behavior mappers
+- `src/stores/visualEnergyStore.ts` — central state + `pulseVisualEnergy()` / `tickVisualEnergy()`
+- `src/stores/pointerStore.ts` — pointer vs touch split
+- `src/stores/engineStore.ts` — note source tracking (`keyboard` | `midi`)
+- `scripts/validate-visual-energy.mjs` — 10 pure-function checks
+
+### Milestone: Sparse Idle ASCII + Visual Energy — completed
+
+- [x] `VisualEnergy.ts` — normalized 0–1 reactive intensity from audio, MIDI, keyboard, pointer, sliders
+- [x] `IdleScenePainters.ts` — sparse thematic idle scenes per `asciiTheme` (negative space, slow motion)
+- [x] `pointerStore.ts` + canvas pointer/touch wiring — grid coords + decaying activity
+- [x] Dense legacy scenes gated behind `FULL_SCENE_ENERGY_THRESHOLD` (0.22); idle layer always on
+- [x] `softReset()` on audio stop — idle timing continues; sparse ambient particles without audio
+- [x] Slider overlays + particle density driven by `densityFromVisualEnergy()`
+- [x] `scripts/validate-visual-energy.mjs` — pure-function validation
+
+#### Follow-up (optional)
+
+- [ ] Per-preset idle painter QA pass on mobile viewports
+- [ ] Wire `visualEnergy` to accessibility density slider as a multiplier
+- [ ] FigJam-style preset mood boards synced to idle theme keys
+
+---
 
 ## Out of Scope for This Repository
 

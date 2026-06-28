@@ -1,9 +1,11 @@
 import type { SoundControlValues } from '../types/instrument';
 
+/** Fixed private master output — loudness is OS / browser controlled. */
+export const INTERNAL_MASTER_DB = -12;
+
 /** Direct sound-slider → synth parameter mapping (0–100 sliders). */
 export function soundSliderToParams(sound: SoundControlValues) {
   return {
-    outputDb: -42 + (sound.volume / 100) * 38,
     filterQ: 0.2 + (sound.tone / 100) * 18,
     filterHz: 150 + (sound.texture / 100) * 8500,
     delayWet: (sound.bloom / 100) * 0.55,

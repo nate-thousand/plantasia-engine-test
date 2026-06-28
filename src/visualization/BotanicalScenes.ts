@@ -1,7 +1,9 @@
 import { paintPlantasiaTitle } from './PlantasiaTitle';
 import { pickThemeAccent, pickThemeChar } from './ThemeCharacters';
+import { paintIdleSceneByKey, resolveIdleThemeKey } from './IdleScenePainters';
 import { paintSliderReactiveOverlays, type SliderVizState } from './SliderVisualEffects';
-import type { PresetTheme } from './types';
+import { fullSceneBlend, shouldRenderFullScene } from './VisualEnergy';
+import type { PresetTheme, VisualEnergyBehavior } from './types';
 
 export type ScenePaintFn = (x: number, y: number, char: string, priority: number) => void;
 
@@ -15,43 +17,33 @@ export type SceneContext = {
   animSpeed: number;
   sliders: SliderVizState;
   interactionPulse: number;
+  /** Normalized 0–1 reactive intensity — drives idle vs full scene blend. */
+  visualEnergy: number;
+  /** 0.32 idle → 1.35 peak density multiplier. */
+  asciiDensityScale: number;
+  pointer: {
+    gridX: number;
+    gridY: number;
+    active: boolean;
+    activity: number;
+    velocity: number;
+    isTouch: boolean;
+  };
+  energyBehavior: VisualEnergyBehavior;
   paint: ScenePaintFn;
 };
 
-/** Paint a full-frame representational botanical scene — unique per preset. */
+/** Paint a full-frame representational botanical scene driven by engine metadata. */
 export function paintBotanicalScene(ctx: SceneContext): void {
-  switch (ctx.theme.id) {
-    case 'root':
-      paintRootForest(ctx);
-      break;
-    case 'bloom':
-      paintBloomGarden(ctx);
-      break;
-    case 'mycelium':
-      paintMyceliumWeb(ctx);
-      break;
-    case 'mutation':
-      paintMutationChaos(ctx);
-      break;
-    case 'fern':
-      paintFernGrove(ctx);
-      break;
-    case 'coral':
-      paintCoralReef(ctx);
-      break;
-    case 'vine':
-      paintVineCanopy(ctx);
-      break;
-    case 'crystal':
-      paintCrystalGarden(ctx);
-      break;
-    case 'juno-flowers':
-      paintJunoMeadow(ctx);
-      break;
-    case 'seed':
-    default:
-      paintSeedSprouts(ctx);
-      break;
+  const themeKey = resolveIdleThemeKey(ctx);
+
+  // Sparse idle layer — always on; thematic, animated, negative space.
+  paintIdleSceneByKey(themeKey, ctx);
+
+  // Dense legacy scene — only when visual energy crosses threshold.
+  if (shouldRenderFullScene(ctx.visualEnergy)) {
+    const blend = fullSceneBlend(ctx.visualEnergy);
+    paintFullScene(ctx, themeKey, blend);
   }
 
   paintPlantasiaTitle(ctx);
@@ -64,7 +56,183 @@ export function paintBotanicalScene(ctx: SceneContext): void {
     ctx.time,
     ctx.paint,
     ctx.interactionPulse,
+    ctx.visualEnergy,
   );
+}
+
+/** Legacy dense painters — gated by visual energy blend. */
+function paintFullScene(ctx: SceneContext, themeKey: string, blend: number): void {
+  if (blend <= 0.05) {
+    return;
+  }
+
+  const boosted: SceneContext = {
+    ...ctx,
+    amplitude: ctx.amplitude * blend,
+    energy: ctx.energy * blend,
+    asciiDensityScale: ctx.asciiDensityScale * blend,
+  };
+
+  if (themeKey && themeKey !== 'seed') {
+    paintSceneByThemeKey(themeKey, boosted);
+  } else {
+    paintSceneByAsciiState(boosted);
+  }
+}
+
+function paintSceneByThemeKey(themeKey: string, ctx: SceneContext): void {
+  switch (themeKey) {
+    case 'plantasonic':
+      paintPlantasonicEcosystem(ctx);
+      break;
+    case 'moss':
+      paintMossSurface(ctx);
+      break;
+    case 'roots':
+    case 'root':
+      paintRootForest(ctx);
+      break;
+    case 'bloom':
+      paintBloomGarden(ctx);
+      break;
+    case 'canopy':
+    case 'fern':
+      paintFernGrove(ctx);
+      break;
+    case 'rainforest':
+    case 'vine':
+      paintRainforestLayers(ctx);
+      break;
+    case 'desert':
+    case 'coral':
+      paintDesertScape(ctx);
+      break;
+    case 'winter':
+    case 'crystal':
+      paintWinterDrift(ctx);
+      break;
+    case 'night-bloom':
+    case 'juno':
+      paintNightBloomGarden(ctx);
+      break;
+    case 'mycelium':
+      paintMyceliumWeb(ctx);
+      break;
+    case 'mutation':
+      paintMutationChaos(ctx);
+      break;
+    case 'seed':
+      paintSeedSprouts(ctx);
+      break;
+    default:
+      paintSceneByAsciiState(ctx);
+      break;
+  }
+}
+
+function paintSceneByAsciiState(ctx: SceneContext): void {
+  const { theme } = ctx;
+
+  switch (theme.asciiState) {
+    case 'seed':
+      paintSeedSprouts(ctx);
+      break;
+    case 'growth':
+      if (theme.engineSpecies === 'Fern') {
+        paintFernGrove(ctx);
+      } else {
+        paintRootForest(ctx);
+      }
+      break;
+    case 'bloom':
+      if (theme.engineSpecies === 'Crystal') {
+        paintCrystalGarden(ctx);
+      } else if (theme.engineSpecies === 'Juno Flowers') {
+        paintJunoMeadow(ctx);
+      } else {
+        paintBloomGarden(ctx);
+      }
+      break;
+    case 'mutation':
+      paintMutationChaos(ctx);
+      break;
+    case 'mycelium':
+      if (theme.engineSpecies === 'Vine') {
+        paintVineCanopy(ctx);
+      } else {
+        paintMyceliumWeb(ctx);
+      }
+      break;
+    case 'ecosystem':
+      if (theme.engineSpecies === 'Plantasonic') {
+        paintPlantasonicEcosystem(ctx);
+      } else {
+        paintCoralReef(ctx);
+      }
+      break;
+    default:
+      paintSeedSprouts(ctx);
+      break;
+  }
+}
+
+function paintMossSurface(ctx: SceneContext): void {
+  const { width, height, time, energy, paint, asciiDensityScale: scale } = ctx;
+  const density = (0.35 + energy * 0.4) * scale;
+
+  for (let y = Math.floor(height * 0.55); y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const n = Math.sin(x * 0.4 + time * 0.3) * Math.cos(y * 0.25 + time * 0.2);
+      if (n > 0.2 - density * 0.15) {
+        paint(x, y, pickThemeChar(ctx.theme, x + y), 2);
+      }
+    }
+  }
+}
+
+function paintRainforestLayers(ctx: SceneContext): void {
+  paintVineCanopy(ctx);
+  const { width, height, time, paint, theme } = ctx;
+  for (let x = 2; x < width - 2; x += 3) {
+    const y = Math.floor(height * 0.3 + Math.sin(x * 0.15 + time * 0.5) * 2);
+    paint(x, y, pickThemeChar(theme, x + y), 3);
+  }
+}
+
+function paintDesertScape(ctx: SceneContext): void {
+  const { width, height, time, paint, theme } = ctx;
+  const ground = height - 2;
+  for (let x = 0; x < width; x++) {
+    const shimmer = Math.sin(x * 0.2 + time * 0.8) * 0.5 + 0.5;
+    if (shimmer > 0.7) {
+      paint(x, ground, pickThemeAccent(theme, x), 1);
+    }
+  }
+  for (let i = 0; i < 4; i++) {
+    const x = Math.floor(width * (0.15 + i * 0.22));
+    paint(x, ground - 1, '|', 4);
+    paint(x, ground - 2, pickThemeChar(theme, x), 4);
+  }
+}
+
+function paintWinterDrift(ctx: SceneContext): void {
+  paintCrystalGarden(ctx);
+  const { width, height, time, paint } = ctx;
+  for (let i = 0; i < width; i++) {
+    const x = (i + Math.floor(time * 4 + i * 3)) % width;
+    const y = Math.floor((time * 2 + i * 0.7) % (height - 2));
+    paint(x, y, '*', 2);
+  }
+}
+
+function paintNightBloomGarden(ctx: SceneContext): void {
+  paintJunoMeadow(ctx);
+  const { width, height, time, paint } = ctx;
+  for (let i = 0; i < 6; i++) {
+    const x = Math.floor(width * (0.1 + i * 0.15 + Math.sin(time + i) * 0.02));
+    const y = Math.floor(height * (0.25 + Math.cos(time * 0.6 + i) * 0.08));
+    paint(x, y, '·', 5);
+  }
 }
 
 function paintSeedSprouts(ctx: SceneContext): void {
@@ -262,6 +430,51 @@ function paintFernGrove(ctx: SceneContext): void {
   }
 
   fillAtmosphere(ctx, 0.08, 0.25);
+}
+
+function paintPlantasonicEcosystem(ctx: SceneContext): void {
+  const { width, height, theme, time, amplitude, paint, animSpeed } = ctx;
+  const ground = height - 2;
+  const breathe = Math.sin(time * 0.45 * animSpeed) * 0.5 + 0.5;
+
+  for (let layer = 0; layer < 4; layer += 1) {
+    const y = Math.floor((height / 5) * (layer + 1));
+    for (let x = 0; x < width; x += 2) {
+      const wave = Math.sin(x * 0.08 + time * 0.25 * animSpeed + layer) * 1.5;
+      const ly = y + Math.round(wave);
+      if (ly >= 0 && ly < height) {
+        paint(x, ly, layer % 2 === 0 ? '≈' : pickThemeChar(theme, x + layer), 2);
+      }
+    }
+  }
+
+  for (let x = 0; x < width; x += 1) {
+    paint(x, ground, pickThemeChar(theme, x), 2);
+    paint(x, ground + 1, '.', 1);
+  }
+
+  const bloomCount = Math.max(5, Math.floor(width / 10));
+  for (let i = 0; i < bloomCount; i += 1) {
+    const cx = Math.floor((i + 0.5) * (width / bloomCount));
+    const sway = Math.round(Math.sin(time * 0.7 * animSpeed + i) * 1.2);
+    const stemH = Math.floor(4 + breathe * 3 + amplitude * 4);
+    for (let dy = 0; dy <= stemH; dy += 1) {
+      paint(cx + sway, ground - dy, dy === stemH ? pickThemeAccent(theme, i) : '|', 3);
+    }
+    if (stemH >= 3) {
+      paintFlower(paint, cx + sway, ground - stemH - 1, theme, i, 1 + breathe, 4);
+    }
+  }
+
+  for (let y = 0; y < Math.floor(height * 0.45); y += 2) {
+    for (let x = 0; x < width; x += 3) {
+      if (Math.sin(x * 0.2 + y + time * 0.4) > 0.35) {
+        paint(x, y, '∘', 2);
+      }
+    }
+  }
+
+  fillAtmosphere(ctx, 0.18 + amplitude * 0.25, 0.42);
 }
 
 function paintCoralReef(ctx: SceneContext): void {
@@ -475,11 +688,12 @@ function paintCrystalCluster(
 }
 
 function fillAtmosphere(ctx: SceneContext, minY: number, density: number): void {
-  const { width, height, theme, time, paint } = ctx;
+  const { width, height, theme, time, paint, asciiDensityScale: scale } = ctx;
+  const scaled = density * scale;
   const top = Math.floor(height * minY);
   for (let y = 0; y < top; y += 1) {
     for (let x = 0; x < width; x += 1) {
-      if (Math.sin(x * 0.25 + y * 0.2 + time * 0.2) > 1 - density * 2) {
+      if (Math.sin(x * 0.25 + y * 0.2 + time * 0.2) > 1 - scaled * 2) {
         paint(x, y, pickThemeChar(theme, x + y + Math.floor(time)), 1);
       }
     }
