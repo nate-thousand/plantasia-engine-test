@@ -841,6 +841,7 @@ export class AsciiEngine {
       this.suppressShapeGridPaint,
       snapshot.interaction,
       snapshot.presetTransition,
+      snapshot.sessionStarted,
     );
     this.lastShapeGlyphs = shapeGlyphs;
 

@@ -1,4 +1,5 @@
 import { resolveThemeTemplateKeyFromTheme } from './PresetVisualThemes';
+import { resolveReleasePresetThemeKey } from './releasePresetThemes';
 import type { PresetTheme } from './types';
 
 /** Preset motion family — unique choreography per Sound World archetype. */
@@ -95,7 +96,8 @@ const BY_THEME: Record<string, ChoreographyProfile> = {
   rainforest: PLANT,
   vine: PLANT,
   juno: PLANT,
-  'night-bloom': PLANT,
+  'night-bloom': SPACE,
+  'juno-flowers': SPACE,
   desert: PLANT,
   coral: WATER,
   mycelium: MOLD,
@@ -106,6 +108,10 @@ const BY_THEME: Record<string, ChoreographyProfile> = {
 };
 
 export function getChoreographyForTheme(theme: PresetTheme): ChoreographyProfile {
+  const releaseKey = resolveReleasePresetThemeKey(theme.id, '');
+  if (releaseKey && releaseKey in BY_THEME) {
+    return BY_THEME[releaseKey]!;
+  }
   const key = resolveThemeTemplateKeyFromTheme(theme);
   return BY_THEME[key] ?? PLANT;
 }

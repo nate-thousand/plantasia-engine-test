@@ -13,6 +13,7 @@ import {
   pulseAmbientActivity,
   resetAmbientGenerativeState,
 } from './ambientStateStore';
+import { buildDemoMelodyNotes } from './demoMelody';
 import { generateNextGesture, shouldLayerPlay } from './gestureVocabulary';
 import { resolveHarmonicProfile, type AmbientHarmonicProfile } from './harmonicProfile';
 import { layerForVoice } from './layers';
@@ -53,10 +54,6 @@ export class AmbientFocusEngine {
   }
 
   async start(preset: PlantasiaPreset): Promise<void> {
-    if (this.active && this.harmonic?.presetId === preset.id) {
-      return;
-    }
-
     await this.stop(false);
     this.harmonic = resolveHarmonicProfile(preset);
     this.session = await createPresetTimbreSession(preset);
@@ -69,7 +66,7 @@ export class AmbientFocusEngine {
       Math.random() * (this.session.profile.densityRange.max - this.session.profile.densityRange.min);
 
     this.spawnLayers();
-    this.startImmediateSound();
+    this.startImmediateSound(preset.id);
     this.startTick();
     this.updateGenerativeState(true);
   }
@@ -149,7 +146,7 @@ export class AmbientFocusEngine {
       .filter((v) => v.actor != null);
   }
 
-  private startImmediateSound(): void {
+  private startImmediateSound(presetId: string): void {
     if (!this.session || !this.harmonic) {
       return;
     }
@@ -175,7 +172,28 @@ export class AmbientFocusEngine {
       }
     }
 
+    this.playDemoMelody(presetId, now);
     pulseAmbientActivity(0.5);
+  }
+
+  /** Seed demo with a short preset-specific melody — randomized each start. */
+  private playDemoMelody(presetId: string, baseNow: number): void {
+    if (!this.harmonic) {
+      return;
+    }
+
+    const melodyVoice =
+      this.voices.find((voice) => voice.kind === 'pluck' || voice.kind === 'bell') ?? this.voices[0];
+    if (!melodyVoice) {
+      return;
+    }
+
+    const notes = buildDemoMelodyNotes(this.harmonic, presetId);
+    for (const note of notes) {
+      const name = midiToNoteName(note.midi);
+      melodyVoice.actor.attackRelease(name, note.durationSec, baseNow + note.atSec, note.velocity);
+      this.phraseMemory.record(note.degree, note.midi);
+    }
   }
 
   private startTick(): void {

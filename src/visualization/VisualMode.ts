@@ -1,5 +1,10 @@
 import type { VisualEnergyFrameInput } from './VisualEnergy';
 import { VISUAL_DENSITY_SCALE } from './visualConstants';
+import {
+  DEMO_AMBIENT_ANIMATION_RATIO,
+  remapAnimationIntensity,
+  STATIC_ANIMATION_RATIO,
+} from './animationIntensity';
 import type { VisualEnergyBehavior } from './types';
 
 /** Home default — almost empty, slow ambient only. */
@@ -23,15 +28,15 @@ export const IDLE_HOME = {
   sceneEnergy: 0.05,
 } as const;
 
-/** Continuous evolution while Play is active — no interaction required. */
+/** Continuous evolution while demo is active — subtle lift, not performance. */
 export const AMBIENT_PLAY = {
-  playModeEnergyFloor: 0.44,
-  visualEnergyFloor: 0.26,
-  displayEnergyTarget: 0.34,
+  playModeEnergyFloor: DEMO_AMBIENT_ANIMATION_RATIO,
+  visualEnergyFloor: DEMO_AMBIENT_ANIMATION_RATIO,
+  displayEnergyTarget: remapAnimationIntensity(DEMO_AMBIENT_ANIMATION_RATIO),
   fullSceneThreshold: 0.12,
-  animSpeed: 0.58,
-  density: 0.14 * VISUAL_DENSITY_SCALE,
-  choreographyBase: 0.24,
+  animSpeed: 0.42,
+  density: 0.08 * VISUAL_DENSITY_SCALE,
+  choreographyBase: DEMO_AMBIENT_ANIMATION_RATIO,
 } as const;
 
 export const ACTIVE_PLAY = {
@@ -39,8 +44,8 @@ export const ACTIVE_PLAY = {
   densityMax: 0.38 * VISUAL_DENSITY_SCALE,
 } as const;
 
-/** Baseline play energy from slider positions — keeps controls reactive without Play. */
-export const CONTROLS_ACTIVE_FLOOR = 0.14;
+/** Baseline animation when session is idle — 10% subtle motion. */
+export const CONTROLS_ACTIVE_FLOOR = STATIC_ANIMATION_RATIO;
 
 /** Cross into activePlay when play energy exceeds this (interaction burst). */
 export const PLAY_MODE_ENTER_THRESHOLD = 0.08;
@@ -87,19 +92,16 @@ export function tickPlayModeEnergy(
   deltaMs: number,
 ): number {
   const dt = Math.min(deltaMs / 1000, 0.05);
-  const controlsBaseline = Math.max(
-    CONTROLS_ACTIVE_FLOOR,
-    Math.min(1, input.sliderCombined * 0.55 + 0.08),
-  );
+  const controlsBaseline = CONTROLS_ACTIVE_FLOOR;
   const floor = input.ambientActive ? AMBIENT_PLAY.playModeEnergyFloor : controlsBaseline;
   let target = floor;
 
-  if (input.ambientActive) {
+  if (input.ambientActive && !input.activeNotes.length && input.sliderDelta <= 0.004) {
     target = AMBIENT_PLAY.playModeEnergyFloor;
   }
 
   if (input.audio.isActive || input.audio.amplitude > 0.03 || input.audio.peak > 0.05) {
-    target = Math.max(target, 0.55 + input.audio.amplitude * 0.45);
+    target = Math.max(target, remapAnimationIntensity(0.35 + input.audio.amplitude * 0.55));
   }
 
   if (input.activeNotes.length > 0) {
@@ -107,23 +109,23 @@ export function tickPlayModeEnergy(
   }
 
   if (input.pointerActive || input.pointerActivity > 0.06) {
-    target = Math.max(target, Math.min(1, 0.45 + input.pointerActivity * 1.35));
+    target = Math.max(target, remapAnimationIntensity(Math.min(1, 0.28 + input.pointerActivity * 1.5)));
   }
 
   if (input.isTouch && input.pointerActivity > 0.04) {
-    target = Math.max(target, Math.min(1, input.pointerActivity * 1.25));
+    target = Math.max(target, remapAnimationIntensity(Math.min(1, input.pointerActivity * 1.35)));
   }
 
   if (input.sliderDelta > 0.004) {
-    target = Math.max(target, Math.min(1, 0.55 + input.sliderDelta * 22));
+    target = Math.max(target, remapAnimationIntensity(Math.min(1, 0.22 + input.sliderDelta * 28)));
   }
 
   if (input.presetTransition > 0.05) {
-    target = Math.max(target, 0.62 + input.presetTransition * 0.38);
+    target = Math.max(target, remapAnimationIntensity(0.55 + input.presetTransition * 0.45));
   }
 
   if (input.interactionBoost > 6) {
-    target = Math.max(target, input.interactionBoost / 127);
+    target = Math.max(target, remapAnimationIntensity(input.interactionBoost / 127));
   }
 
   if (target > current) {

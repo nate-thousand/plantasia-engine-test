@@ -15,7 +15,7 @@ export function KeyboardControls({ keyboard }: KeyboardControlsProps) {
       <span className="control-indicator">
         {keyboard.enabled ? `Active · ${range}` : 'Off'}
       </span>
-      <span className="control-hint">A–K row · Z/X octave · Space ambient play/stop</span>
+      <span className="control-hint">A–K row · Z/X octave · Space demo on/off</span>
       <div className="control-row">
         <ControlButton
           label={keyboard.holdEnabled ? 'Hold on' : 'Hold off'}

@@ -1,13 +1,22 @@
 import { useSyncExternalStore } from 'react';
 import { beginInstrumentSession } from '../../transport/sessionStart';
-import { getTransportStore, isSessionStarted, subscribeTransportStore } from '../../transport/transportStore';
+import {
+  getTransportStore,
+  isSessionStarted,
+  isTransportAmbientActive,
+  subscribeTransportStore,
+} from '../../transport/transportStore';
 import { useTransport } from '../../transport/useTransport';
 import {
   PLANTASONIC_BANNER_COMPACT,
   PLANTASONIC_BANNER_STANDARD,
 } from './plantasonicTitleBanner';
 
-/** First-run title — full-screen tap target + spacebar ritual. */
+function isTitleVisible(): boolean {
+  return !isSessionStarted() && !isTransportAmbientActive();
+}
+
+/** First-run title — full-screen tap target + spacebar ritual. Dismisses on begin. */
 export function TitleScreen() {
   const transport = useTransport();
   const error = useSyncExternalStore(
@@ -15,9 +24,9 @@ export function TitleScreen() {
     () => getTransportStore().error,
     () => null,
   );
-  const visible = !useSyncExternalStore(
+  const visible = useSyncExternalStore(
     subscribeTransportStore,
-    () => !isSessionStarted(),
+    isTitleVisible,
     () => true,
   );
 

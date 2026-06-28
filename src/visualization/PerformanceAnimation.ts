@@ -4,7 +4,11 @@
  */
 import type { AudioVizFeedback } from '../audio/visualization/AudioTap';
 import { getChoreographyForTheme, type ChoreographyProfile } from './PresetChoreography';
-import { AMBIENT_PLAY } from './VisualMode';
+import {
+  DEMO_AMBIENT_ANIMATION_RATIO,
+  EXTREME_ANIMATION_RATIO,
+  remapAnimationIntensity,
+} from './animationIntensity';
 import { getAmbientGenerativeState } from '../audio/ambient/ambientStateStore';
 import type { PresetTheme, VisualEnergyBehavior } from './types';
 import type { VisualEnergyFrameInput, UnifiedVisualEnergyState } from './VisualEnergy';
@@ -100,22 +104,27 @@ function performanceTarget(
     return 0;
   }
 
-  let target = energy.playModeEnergy;
-  target = Math.max(target, energy.visualEnergy * 0.85);
-  target = Math.max(target, clamp01(input.sliderCombined * 0.55 + 0.1));
+  let target = remapAnimationIntensity(energy.playModeEnergy);
+  target = Math.max(target, remapAnimationIntensity(energy.visualEnergy * 0.92));
 
-  if (input.ambientActive && target < AMBIENT_PLAY.playModeEnergyFloor + 0.04) {
-    target = Math.max(target, AMBIENT_PLAY.choreographyBase);
+  if (input.ambientActive && energy.playModeEnergy < DEMO_AMBIENT_ANIMATION_RATIO + 0.04) {
+    target = Math.max(target, remapAnimationIntensity(DEMO_AMBIENT_ANIMATION_RATIO));
   }
 
   if (input.activeNotes.length > 0) {
-    target = Math.max(target, 0.55);
+    target = EXTREME_ANIMATION_RATIO;
   }
   if (input.audio.isActive || input.audio.amplitude > 0.04) {
-    target = Math.max(target, clamp01(input.audio.amplitude * 1.1 + input.audio.peak * 0.5));
+    target = Math.max(
+      target,
+      remapAnimationIntensity(input.audio.amplitude * 1.05 + input.audio.peak * 0.55),
+    );
   }
-  if (input.pointerActivity > 0.08 || input.sliderDelta > 0.008) {
-    target = Math.max(target, 0.4 + input.pointerActivity * 0.5);
+  if (input.pointerActivity > 0.05 || input.sliderDelta > 0.006) {
+    target = Math.max(
+      target,
+      remapAnimationIntensity(0.2 + input.pointerActivity * 0.65 + input.sliderDelta * 18),
+    );
   }
   return clamp01(target);
 }
@@ -130,16 +139,15 @@ function envelopeTarget(input: VisualEnergyFrameInput): number {
   }
   if (input.ambientActive) {
     const gen = getAmbientGenerativeState();
-    return clamp01(
-      0.28 +
-        input.audio.amplitude * 0.45 +
-        input.audio.peak * 0.25 +
-        AMBIENT_PLAY.choreographyBase * 0.35 +
-        gen.evolutionPhase * 0.12 +
-        gen.recentActivity * 0.2,
+    return remapAnimationIntensity(
+      DEMO_AMBIENT_ANIMATION_RATIO +
+        input.audio.amplitude * 0.35 +
+        input.audio.peak * 0.2 +
+        gen.evolutionPhase * 0.08 +
+        gen.recentActivity * 0.12,
     );
   }
-  return clamp01(input.audio.amplitude * 0.5 + input.audio.peak * 0.35);
+  return remapAnimationIntensity(input.audio.amplitude * 0.45 + input.audio.peak * 0.3);
 }
 
 function velocityAmplitude(input: VisualEnergyFrameInput): number {
@@ -366,18 +374,18 @@ export function amplifyBehaviorForPerformance(
     return behavior;
   }
 
-  const boost = p ** 0.82;
+  const boost = p ** 0.65;
   return {
-    density: behavior.density,
-    speed: behavior.speed * (1 + boost * 2.8),
-    spread: behavior.spread * (1 + boost * 1.4),
-    brightness: clamp01(behavior.brightness + boost * 0.4),
-    jitter: clamp01(behavior.jitter + boost * 0.55),
-    scale: behavior.scale + boost * 0.18,
-    distortion: clamp01(behavior.distortion + boost * 0.45),
-    symbolComplexity: clamp01(behavior.symbolComplexity + boost * 0.35),
-    rareEventRate: clamp01(behavior.rareEventRate + boost * 0.3),
-    growthRate: behavior.growthRate + boost * 0.55,
-    decayRate: clamp01(behavior.decayRate - boost * 0.12),
+    density: behavior.density * (1 + boost * 0.35),
+    speed: behavior.speed * (1 + boost * 3.4),
+    spread: behavior.spread * (1 + boost * 1.85),
+    brightness: clamp01(behavior.brightness + boost * 0.52),
+    jitter: clamp01(behavior.jitter + boost * 0.72),
+    scale: behavior.scale + boost * 0.28,
+    distortion: clamp01(behavior.distortion + boost * 0.58),
+    symbolComplexity: clamp01(behavior.symbolComplexity + boost * 0.45),
+    rareEventRate: clamp01(behavior.rareEventRate + boost * 0.42),
+    growthRate: behavior.growthRate + boost * 0.75,
+    decayRate: clamp01(behavior.decayRate - boost * 0.16),
   };
 }

@@ -79,6 +79,12 @@ const THEME_PROFILES: Record<string, Partial<ThemeReactiveProfile>> = {
     sustainDriftBoost: 1.35,
     bassBranchExtend: 1.15,
   },
+  'juno-flowers': {
+    trebleBloomBoost: 1.5,
+    slowNoteGlow: 1.65,
+    sustainDriftBoost: 1.3,
+    pitchBloomThreshold: 62,
+  },
   moss: {
     velocityDensityScale: 0.75,
     slowNoteGlow: 1.1,

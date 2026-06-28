@@ -1,7 +1,12 @@
 import { VISUAL_DENSITY_SCALE } from './visualConstants';
 import {
+  DEMO_AMBIENT_ANIMATION_RATIO,
+  remapAnimationIntensity,
+  STATIC_ANIMATION_RATIO,
+  behaviorFromAnimationIntensity,
+} from './animationIntensity';
+import {
   AMBIENT_PLAY,
-  CONTROLS_ACTIVE_FLOOR,
   displayVisualEnergy,
   resolveVisualRenderMode,
   tickPlayModeEnergy,
@@ -116,12 +121,12 @@ export function createSourceEnergyMap(): SourceEnergyMap {
 
 export function createUnifiedVisualEnergyState(): UnifiedVisualEnergyState {
   const sources = createSourceEnergyMap();
-  sources.control = { current: CONTROLS_ACTIVE_FLOOR, impulse: 0 };
+  const idle = STATIC_ANIMATION_RATIO;
   return {
-    visualEnergy: CONTROLS_ACTIVE_FLOOR,
-    playModeEnergy: CONTROLS_ACTIVE_FLOOR,
+    visualEnergy: idle,
+    playModeEnergy: idle,
     renderMode: 'idleHome',
-    displayEnergy: CONTROLS_ACTIVE_FLOOR,
+    displayEnergy: idle,
     sources,
   };
 }
@@ -148,15 +153,17 @@ function sustainTargets(input: VisualEnergyFrameInput): Record<EnergySourceKey, 
       : input.ambientActive
         ? (() => {
             const gen = getAmbientGenerativeState();
-            const base = AMBIENT_PLAY.visualEnergyFloor * (0.85 + Math.sin(Date.now() * 0.00035) * 0.15);
+            const base =
+              DEMO_AMBIENT_ANIMATION_RATIO *
+              (0.85 + Math.sin(Date.now() * 0.00035) * 0.15);
             const generative =
-              gen.voiceDensity * 0.22 +
-              gen.padEnergy * 0.18 +
-              gen.textureAmount * 0.12 +
-              gen.recentActivity * 0.28 +
-              gen.evolutionPhase * 0.08 +
-              (gen.soundWorld === 'plantasonic' ? gen.textureAmount * 0.1 : 0) +
-              (gen.soundWorld === 'juno-flowers' ? gen.stereoSpread * 0.08 : 0);
+              gen.voiceDensity * 0.12 +
+              gen.padEnergy * 0.1 +
+              gen.textureAmount * 0.08 +
+              gen.recentActivity * 0.14 +
+              gen.evolutionPhase * 0.05 +
+              (gen.soundWorld === 'plantasonic' ? gen.textureAmount * 0.06 : 0) +
+              (gen.soundWorld === 'juno-flowers' ? gen.stereoSpread * 0.05 : 0);
             return clamp01(base + generative);
           })()
         : 0;
@@ -176,10 +183,10 @@ function sustainTargets(input: VisualEnergyFrameInput): Record<EnergySourceKey, 
   const touchBase = input.isTouch ? input.pointerActivity : input.pointerActive ? input.pointerActivity * 0.6 : 0;
   const pointerBoost = input.pointerVelocity * (input.isTouch ? 0.9 : 0.55);
 
-  const control = clamp01(
-    input.sliderCombined * 0.55 +
-      (input.sliderDelta > 0.002 ? input.sliderDelta * 5.5 : input.sliderDelta * 2.5),
-  );
+  const control =
+    input.sliderDelta > 0.002
+      ? clamp01(input.sliderCombined * 0.45 + input.sliderDelta * 8)
+      : clamp01(input.sliderDelta * 3);
   const preset = clamp01(input.presetTransition * 0.85);
   const ui = clamp01(input.interactionBoost / 127);
 
@@ -279,11 +286,11 @@ export function tickUnifiedVisualEnergy(
     input.ambientActive,
     input.sessionStarted,
   );
-  const visualEnergy = clamp01(combined);
+  const visualEnergy = remapAnimationIntensity(combined);
   const displayEnergy = displayVisualEnergy(
     renderMode,
     visualEnergy,
-    playModeEnergy,
+    remapAnimationIntensity(playModeEnergy),
     input.ambientActive,
   );
 
@@ -302,11 +309,13 @@ export function densityFromVisualEnergy(energy: number): number {
   return SPARSE_IDLE_DENSITY + norm * (PEAK_REACTIVE_DENSITY - SPARSE_IDLE_DENSITY);
 }
 
-/** Motion speed multiplier — idle breathes slowly; interaction speeds up. */
+/** Motion speed multiplier — 10% idle breathes slowly; 100% input is extreme. */
 export function motionFromVisualEnergy(energy: number, reduceMotion: boolean): number {
-  const base = reduceMotion ? 0.35 : 0.55;
-  const peak = reduceMotion ? 1.1 : 1.85;
-  return base + clamp01(energy) * (peak - base);
+  const intensity = remapAnimationIntensity(energy);
+  const span = (intensity - STATIC_ANIMATION_RATIO) / (1 - STATIC_ANIMATION_RATIO);
+  const base = reduceMotion ? 0.22 : 0.18;
+  const peak = reduceMotion ? 1.05 : 2.45;
+  return base + span * (peak - base);
 }
 
 export function shouldRenderFullScene(_energy: number, _ambientActive = false): boolean {
@@ -328,24 +337,27 @@ export function behaviorFromVisualEnergy(
   sources: SourceEnergyMap,
   reduceMotion: boolean,
 ): VisualEnergyBehavior {
+  const intensity = remapAnimationIntensity(energy);
   const e = clamp01(energy);
   const control = sources.control.current;
   const preset = sources.preset.current;
   const noteBloom = Math.max(sources.midi.current, sources.keyboard.current);
 
-  return {
-    density: densityFromVisualEnergy(e),
+  const base: VisualEnergyBehavior = {
+    density: densityFromVisualEnergy(intensity),
     speed: motionFromVisualEnergy(e, reduceMotion),
-    spread: 0.08 + e * 0.42 + noteBloom * 0.08,
-    brightness: 0.38 + e * 0.62 + sources.ui.current * 0.1,
-    jitter: reduceMotion ? e * 0.03 + preset * 0.05 : e * 0.22 + preset * 0.18 + control * 0.08,
-    scale: 0.9 + e * 0.1,
-    distortion: clamp01(e * 0.28 + control * 0.35 + sources.audio.current * 0.12),
-    symbolComplexity: 0.12 + e * 0.45,
-    rareEventRate: clamp01(e * 0.12 + preset * 0.2 + noteBloom * 0.08),
-    growthRate: 0.2 + e * 0.45 + noteBloom * 0.12 + sources.touch.current * 0.06,
-    decayRate: clamp01(0.94 - e * 0.2 - noteBloom * 0.08),
+    spread: 0.04 + e * 0.52 + noteBloom * 0.14,
+    brightness: 0.34 + e * 0.66 + sources.ui.current * 0.12,
+    jitter: reduceMotion ? e * 0.04 + preset * 0.06 : e * 0.28 + preset * 0.22 + control * 0.12,
+    scale: 0.88 + e * 0.14,
+    distortion: clamp01(e * 0.32 + control * 0.42 + sources.audio.current * 0.15),
+    symbolComplexity: 0.1 + e * 0.52,
+    rareEventRate: clamp01(e * 0.14 + preset * 0.24 + noteBloom * 0.1),
+    growthRate: 0.14 + e * 0.52 + noteBloom * 0.16 + sources.touch.current * 0.08,
+    decayRate: clamp01(0.96 - e * 0.22 - noteBloom * 0.1),
   };
+
+  return behaviorFromAnimationIntensity(base, intensity, reduceMotion);
 }
 
 function clamp01(value: number): number {

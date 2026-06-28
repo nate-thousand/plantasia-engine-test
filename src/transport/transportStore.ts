@@ -37,6 +37,11 @@ function syncEngineFlags(transportState: TransportState): void {
 
 export function patchTransportStore(partial: Partial<TransportStoreState>): void {
   const next = { ...state, ...partial };
+
+  if (next.ambientActive) {
+    next.sessionStarted = true;
+  }
+
   if (partial.transportState !== undefined) {
     syncEngineFlags(partial.transportState);
   }

@@ -1,3 +1,4 @@
+import { resolveReleasePresetThemeKey } from './releasePresetThemes';
 import type { PlantasiaPreset } from 'plantasia-sound-engine';
 import { findPresetById } from '../presets/engineRegistry';
 import { extractVisualMetadata } from '../presets/presetMetadata';
@@ -443,6 +444,11 @@ export function describeThemeResolution(preset: PlantasiaPreset): string | null 
 
 /** Resolve visual template key from a resolved PresetTheme (idle painters, overlays). */
 export function resolveThemeTemplateKeyFromTheme(theme: PresetTheme): string {
+  const releaseKey = resolveReleasePresetThemeKey(theme.id, '');
+  if (releaseKey && releaseKey in THEME_TEMPLATES) {
+    return releaseKey;
+  }
+
   const fromMeta = theme.visualMetadata?.asciiTheme;
   if (fromMeta && fromMeta in THEME_TEMPLATES) {
     return fromMeta;
@@ -473,6 +479,11 @@ export function resolveThemeTemplateKeyFromTheme(theme: PresetTheme): string {
 }
 
 function selectThemeTemplateKey(preset: PlantasiaPreset): keyof typeof THEME_TEMPLATES {
+  const releaseKey = resolveReleasePresetThemeKey(preset.id, '');
+  if (releaseKey && releaseKey in THEME_TEMPLATES) {
+    return releaseKey as keyof typeof THEME_TEMPLATES;
+  }
+
   const raw = preset as PlantasiaPreset & Record<string, unknown>;
   const visual = extractVisualMetadata(preset, raw);
   const themeKey = visual.asciiTheme as keyof typeof THEME_TEMPLATES | undefined;

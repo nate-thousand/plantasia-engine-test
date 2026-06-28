@@ -45,16 +45,16 @@ export function useTransport(): TransportViewModel {
   };
 }
 
-export function transportStateLabel(state: TransportState, midiConnected: boolean): string {
+export function transportStateLabel(state: TransportState, _midiConnected: boolean): string {
   switch (state) {
     case 'idle':
       return 'Ready';
     case 'loading':
-      return 'Loading';
+      return 'Awakening…';
     case 'ready':
-      return midiConnected ? 'Ready · MIDI' : 'Ready';
+      return 'Live';
     case 'playing':
-      return 'Ambient';
+      return 'Demo';
     default:
       return state;
   }

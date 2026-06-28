@@ -224,6 +224,8 @@ export type VizInputSnapshot = {
   performance: import('./PerformanceAnimation').PerformanceAnimationState;
   /** Transport ambient session active (Milestone 13D). */
   ambientActive: boolean;
+  /** User completed title / begin ritual. */
+  sessionStarted: boolean;
   /** Milestone 15C — interaction amplification (idle vs expressive). */
   interaction: import('./InteractionResponse').InteractionFrameState;
 };

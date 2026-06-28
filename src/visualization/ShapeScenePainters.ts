@@ -1,5 +1,6 @@
 /**
- * Milestone 13F — one shape concept per preset, per-glyph animation, strict density.
+ * Milestone 13F — shape-based composition, per-glyph animation, strict density.
+ * Pre-session: canvas stays sparse; React TitleScreen owns the logo ritual.
  */
 import type { ExperientialMode } from './VisualMode';
 import { resolveExperientialMode } from './VisualMode';
@@ -34,16 +35,6 @@ function paintShapeGlyph(
   }
 }
 
-function paintHomeTitle(ctx: SceneContext): void {
-  const title = 'PLANTASONIC';
-  const { width, height, time, animSpeed } = ctx;
-  const startX = Math.max(1, Math.floor((width - title.length) / 2));
-  const y = Math.max(2, Math.floor(height * 0.14 + Math.sin(time * 0.12 * animSpeed) * 0.3));
-  for (let i = 0; i < title.length; i += 1) {
-    paintShapeGlyph(ctx, startX + i, y, title[i] ?? '·', 3);
-  }
-}
-
 function paintPointerHalo(ctx: SceneContext): void {
   const { pointer } = ctx;
   if (!pointer.active && pointer.activity < 0.1) return;
@@ -51,22 +42,26 @@ function paintPointerHalo(ctx: SceneContext): void {
   paintShapeGlyph(ctx, cx, cy, '+', 2);
 }
 
-/** Primary 13F scene — shape composition with per-glyph animation. */
+/** Primary 13F scene — one concept per preset, no wallpaper (13F). */
 export function paintShapeScene(ctx: SceneContext): void {
+  const sessionStarted = ctx.sessionStarted ?? false;
+
+  if (!sessionStarted) {
+    paintPointerHalo(ctx);
+    return;
+  }
+
   const themeKey = resolveIdleThemeKey(ctx);
   const presetId = ctx.theme.id ?? themeKey;
   const mode: ExperientialMode = resolveExperientialMode(
     ctx.ambientActive ?? false,
     ctx.playModeEnergy ?? (ctx.renderMode === 'idleHome' ? 0 : ctx.visualEnergy),
+    sessionStarted,
   );
   const energy = clampShapeVisualEnergy(ctx.visualEnergy, mode);
   const seed = Math.abs(hashString(themeKey + presetId + String(ctx.width)));
 
-  if (mode === 'home') {
-    paintHomeTitle(ctx);
-  }
-
-  const shapeKind = resolveShapeKind(themeKey);
+  const shapeKind = resolveShapeKind(themeKey, presetId);
   const palette = symbolPaletteForTheme(ctx.theme);
   let clusterTarget = clusterCountForMode(mode, themeKey, seed);
   const anchorOffsetX = shapeAnchorOffset(themeKey + presetId, ctx.width);

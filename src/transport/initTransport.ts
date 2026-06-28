@@ -1,6 +1,6 @@
 import { bootstrapInstrumentDefaults } from '../instrument/bootstrapDefaults';
 import { registerMidiActionHandlers, initMidiPipeline } from '../input/MidiRouter';
-import { beginInstrumentSession } from './sessionStart';
+import { beginInstrumentSession, toggleDemoSession } from './sessionStart';
 import {
   transportPresetNext,
   transportPresetPrevious,
@@ -27,7 +27,13 @@ export function initTransport(): void {
   initMidiPipeline();
 
   registerMidiActionHandlers({
-    onPlay: () => beginInstrumentSession('midi'),
+    onPlay: () => {
+      if (!isSessionStarted()) {
+        beginInstrumentSession('midi');
+        return;
+      }
+      toggleDemoSession('midi');
+    },
     onStop: () => transportStop('midi'),
     onToggleHold: transportToggleHold,
     onSetHold: transportSetHold,
@@ -61,10 +67,6 @@ export function attachTransportKeyboard(): () => void {
 
     if (!isSessionStarted()) {
       beginInstrumentSession('keyboard');
-      return;
-    }
-
-    if (event.target instanceof HTMLButtonElement) {
       return;
     }
 

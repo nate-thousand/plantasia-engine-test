@@ -1,14 +1,13 @@
 import { useSyncExternalStore } from 'react';
+import { getEngineStore, subscribeEngineStore } from '../../stores/engineStore';
 import { getPresetStore, subscribePresetStore } from '../../stores/presetStore';
 import type { UseInstrumentReturn } from '../../hooks/useInstrument';
 import {
   transportPresetNext,
   transportPresetPrevious,
   transportSelectPreset,
-  transportStartSession,
-  transportStop,
 } from '../../transport/transportActions';
-import { beginInstrumentSession } from '../../transport/sessionStart';
+import { beginInstrumentSession, toggleDemoSession } from '../../transport/sessionStart';
 import { transportStateLabel, useTransport } from '../../transport/useTransport';
 
 type UnifiedTransportProps = {
@@ -47,7 +46,7 @@ function TransportIconButton({
   );
 }
 
-/** Single playback transport — play/stop, preset, menu. Always visible. */
+/** Single playback transport — one toggle, preset, menu. Always visible. */
 export function UnifiedTransport({
   instrument,
   menuOpen,
@@ -56,10 +55,15 @@ export function UnifiedTransport({
 }: UnifiedTransportProps) {
   const transport = useTransport();
   const presetStore = useSyncExternalStore(subscribePresetStore, getPresetStore, getPresetStore);
+  const hasKeyboardPlayed = useSyncExternalStore(
+    subscribeEngineStore,
+    () => getEngineStore().hasKeyboardPlayed,
+    () => false,
+  );
   const { presets } = instrument;
   const midiConnected = instrument.status.midiIndicator.includes('●');
 
-  const handleStartOrPlay = () => {
+  const handleToggle = () => {
     if (transport.isInitializing) {
       return;
     }
@@ -67,15 +71,15 @@ export function UnifiedTransport({
       beginInstrumentSession('ui');
       return;
     }
-    if (transport.isPlaying) {
-      return;
-    }
-    void transportStartSession('ui');
+    toggleDemoSession('ui');
   };
 
-  const handleStop = () => {
-    transportStop('ui');
-  };
+  const toggleLabel = transport.isInitializing ? '…' : transport.isPlaying ? '■' : '▶';
+  const toggleTitle = !sessionStarted
+    ? 'Begin (Space)'
+    : transport.isPlaying
+      ? 'Stop demo (Space)'
+      : 'Start demo (Space)';
 
   const presetName =
     presetStore.activeMetadata?.name ??
@@ -99,7 +103,10 @@ export function UnifiedTransport({
           },
         ];
 
+  const showOnboardingHint = sessionStarted && !hasKeyboardPlayed;
+
   return (
+    <div className="unified-transport-shell">
     <div
       className={`unified-transport${sessionStarted ? '' : ' unified-transport--title'}`}
       data-transport-state={transport.transportState}
@@ -108,32 +115,18 @@ export function UnifiedTransport({
     >
       <div className="unified-transport__playback">
         <TransportIconButton
-          label={transport.isInitializing ? '…' : sessionStarted && transport.isPlaying ? '▶' : '▶'}
-          title={
-            !sessionStarted
-              ? 'Begin (Space)'
-              : transport.isPlaying
-                ? 'Ambient playing'
-                : 'Start ambient soundscape (Space)'
-          }
+          label={toggleLabel}
+          title={toggleTitle}
           disabled={transport.isInitializing}
           active={sessionStarted && transport.isPlaying}
           primary
-          onClick={handleStartOrPlay}
+          onClick={handleToggle}
         />
-        {sessionStarted ? (
-          <TransportIconButton
-            label="■"
-            title="Stop ambient soundscape (Space)"
-            disabled={!transport.isPlaying}
-            onClick={handleStop}
-          />
-        ) : null}
       </div>
 
       <div className="unified-transport__preset">
         <TransportIconButton
-          label="◀"
+          label="‹"
           title="Previous preset"
           disabled={!canSelectPreset}
           onClick={() => transportPresetPrevious()}
@@ -166,20 +159,18 @@ export function UnifiedTransport({
           )}
         </select>
         <TransportIconButton
-          label="▶"
+          label="›"
           title="Next preset"
           disabled={!canSelectPreset}
           onClick={() => transportPresetNext()}
         />
       </div>
 
-      {sessionStarted ? (
-        <div className="unified-transport__status" aria-live="polite">
-          <span className="unified-transport__state">
-            {transportStateLabel(transport.transportState, midiConnected)}
-          </span>
-        </div>
-      ) : null}
+      <div className="unified-transport__status" aria-live="polite">
+        <span className="unified-transport__state">
+          {transportStateLabel(transport.transportState, midiConnected)}
+        </span>
+      </div>
 
       <TransportIconButton
         label={menuOpen ? 'close' : 'menu'}
@@ -187,6 +178,12 @@ export function UnifiedTransport({
         active={menuOpen}
         onClick={onMenuToggle}
       />
+    </div>
+    {showOnboardingHint ? (
+      <p className="unified-transport__hint" aria-live="polite">
+        A–K to play · ▶ for demo · Space toggles demo
+      </p>
+    ) : null}
     </div>
   );
 }

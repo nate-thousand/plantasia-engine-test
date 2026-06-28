@@ -2,6 +2,8 @@
  * Milestone 13F — shape-based composition, density limits, symbol palettes.
  */
 import type { ExperientialMode } from './VisualMode';
+import { EXTREME_ANIMATION_RATIO, STATIC_ANIMATION_RATIO } from './animationIntensity';
+import { resolveReleasePresetThemeKey } from './releasePresetThemes';
 import { VISUAL_DENSITY_SCALE } from './visualConstants';
 import { getChoreographyForTheme } from './PresetChoreography';
 import type { PresetTheme } from './types';
@@ -83,8 +85,17 @@ const SHAPE_BY_THEME: Record<string, ShapeKind> = {
   coral: 'waveLine',
 };
 
-export function resolveShapeKind(themeKey: string): ShapeKind {
-  return SHAPE_BY_THEME[themeKey] ?? 'verticalSprout';
+/** Release 1 shape overrides — Seed reads as sprout, not frame edge. */
+const RELEASE_PRESET_SHAPE_KINDS: Partial<Record<string, ShapeKind>> = {
+  plantasonic: 'verticalSprout',
+};
+
+export function resolveShapeKind(themeKey: string, presetId?: string): ShapeKind {
+  if (presetId && RELEASE_PRESET_SHAPE_KINDS[presetId]) {
+    return RELEASE_PRESET_SHAPE_KINDS[presetId]!;
+  }
+  const key = resolveReleasePresetThemeKey(presetId ?? '', themeKey);
+  return SHAPE_BY_THEME[key] ?? 'verticalSprout';
 }
 
 export function symbolPaletteForTheme(theme: PresetTheme): readonly string[] {
@@ -119,12 +130,12 @@ export function maxGlyphsForMode(mode: ExperientialMode, width: number, height: 
   return Math.min(limits.maxGlyphs, areaCap);
 }
 
-/** Clamp combined visual energy so high input stays readable. */
+/** Clamp combined visual energy — idle ~10%, performance up to 100%. */
 export function clampShapeVisualEnergy(energy: number, mode: ExperientialMode): number {
   const caps: Record<ExperientialMode, number> = {
-    home: 0.12,
-    ambient: 0.55,
-    performance: 0.88,
+    home: STATIC_ANIMATION_RATIO + 0.04,
+    ambient: 0.62,
+    performance: EXTREME_ANIMATION_RATIO,
   };
   return Math.min(energy, caps[mode]);
 }

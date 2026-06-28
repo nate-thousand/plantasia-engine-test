@@ -1,5 +1,5 @@
 import { engineAdapter } from '../audio/EngineAdapter';
-import { transportStartSession } from './transportActions';
+import { enterInstrumentSession, transportStartSession } from './transportActions';
 import type { TransportActionSource } from './types';
 
 /** Begin audio unlock in the same call stack as a user gesture. */
@@ -7,8 +7,14 @@ export function kickAudioFromUserGesture(): void {
   void engineAdapter.kickAudioFromUserGesture();
 }
 
-/** Unified entry for title tap, play button, and spacebar. */
+/** Title / first begin — enter instrument without starting demo. */
 export function beginInstrumentSession(source: TransportActionSource): void {
+  kickAudioFromUserGesture();
+  void enterInstrumentSession(source);
+}
+
+/** After session started — toggle demo playback. */
+export function toggleDemoSession(source: TransportActionSource): void {
   kickAudioFromUserGesture();
   void transportStartSession(source);
 }

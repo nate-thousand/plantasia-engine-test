@@ -34,6 +34,8 @@ export type SceneContext = {
   performance?: import('./PerformanceAnimation').PerformanceAnimationState;
   /** Transport ambient session active (Milestone 13D). */
   ambientActive?: boolean;
+  /** User completed title / begin ritual — gates canvas density. */
+  sessionStarted?: boolean;
   /** 0–1 play-mode energy for experiential mode resolution (13F). */
   playModeEnergy?: number;
   paint: ScenePaintFn;

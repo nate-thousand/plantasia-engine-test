@@ -3,6 +3,10 @@
  */
 import type { InteractionFrameState } from './InteractionResponse';
 import {
+  animationIntensitySpan,
+  STATIC_ANIMATION_RATIO,
+} from './animationIntensity';
+import {
   clampGlyphRotation,
   clampGlyphScale,
   interactionMutationBoost,
@@ -81,11 +85,13 @@ export function animateGlyph(
   alpha: number;
 } {
   const frame = ctx.interaction;
-  const shapeBreath = Math.sin(ctx.time * 0.22) * 0.5 + 0.5;
-  const clusterPhase = ctx.time * (0.45 + point.clusterIndex * 0.11);
-  const spreadAmp = ctx.spread * (frame?.isInteracting ? 1 + (frame.interactionBoost ?? 0) * 1.2 : 1);
-  const clusterDriftX = Math.sin(clusterPhase) * (2 + ctx.visualEnergy * 4) * spreadAmp;
-  const clusterDriftY = Math.cos(clusterPhase * 0.85) * (1 + ctx.visualEnergy * 3) * spreadAmp;
+  const intensitySpan = animationIntensitySpan(ctx.visualEnergy);
+  const idleMotion = STATIC_ANIMATION_RATIO + intensitySpan * (1 - STATIC_ANIMATION_RATIO);
+  const shapeBreath = Math.sin(ctx.time * (0.14 + intensitySpan * 0.35)) * 0.5 + 0.5;
+  const clusterPhase = ctx.time * (0.28 + point.clusterIndex * 0.11 + intensitySpan * 0.55);
+  const spreadAmp = ctx.spread * (frame?.isInteracting ? 1 + (frame.interactionBoost ?? 0) * 1.6 : 0.65 + intensitySpan);
+  const clusterDriftX = Math.sin(clusterPhase) * (0.8 + idleMotion * 5 + intensitySpan * 8) * spreadAmp;
+  const clusterDriftY = Math.cos(clusterPhase * 0.85) * (0.5 + idleMotion * 4 + intensitySpan * 6) * spreadAmp;
 
   const noteAmp = (frame?.notePulse ?? 0) * (frame?.interactionIntensity ?? 1);
   const glyphPulse = Math.sin(ctx.time * (1.8 + point.glyphIndex * 0.3) + ctx.amplitude * 4 + noteAmp * 3);

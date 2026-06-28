@@ -4,13 +4,12 @@ import {
   loadPresetAtIndex,
   randomPresetIndex,
 } from '../audio/presets';
-import { stopEngineNote } from '../audio/engine';
 import { buildPresetCatalog } from '../presets/engineRegistry';
 import { resolvePresetIndexFromProgram } from '../input/PresetMidiDefaults';
 import {
-  clearActiveNotes,
   registerNoteOff,
   registerNoteOn,
+  resetKeyboardOnboarding,
 } from '../stores/engineStore';
 import { getControlStore } from '../stores/controlStore';
 import { getPresetStore, setActivePresetIndex } from '../stores/presetStore';
@@ -88,7 +87,7 @@ export async function ensureInstrumentAudio(): Promise<boolean> {
 /** @deprecated Use ensureInstrumentAudio — kept for callers that only need init. */
 export const startTransportAudio = ensureInstrumentAudio;
 
-/** Play — start ambient soundscape only (instrument must be initialized). */
+/** Play — start demo / auto-playback only (live input stays independent). */
 export async function transportPlay(_source: TransportActionSource = 'ui'): Promise<void> {
   const ready = isSessionStarted() ? isTransportAudioReady() : await ensureInstrumentAudio();
   if (!ready) {
@@ -117,7 +116,7 @@ export async function transportPlay(_source: TransportActionSource = 'ui'): Prom
   }
 }
 
-/** Stop — fade ambient soundscape; instrument stays available for notes and controls. */
+/** Stop demo only — keyboard and MIDI voices keep playing. */
 export async function transportStop(_source: TransportActionSource = 'ui'): Promise<void> {
   if (!isTransportAmbientActive()) {
     return;
@@ -128,8 +127,6 @@ export async function transportStop(_source: TransportActionSource = 'ui'): Prom
     syncTransportPlayingState();
 
     if (isTransportAudioReady()) {
-      stopEngineNote();
-      clearActiveNotes();
       await engineAdapter.stopAmbientPlayback(true);
     }
 
@@ -140,41 +137,60 @@ export async function transportStop(_source: TransportActionSource = 'ui'): Prom
     pulseVisualEnergy('ui', scaleEventAmount(40));
     emitTransportFeedback('stop', 90);
   } catch (caught) {
-    const message = caught instanceof Error ? caught.message : 'Playback could not stop.';
+    const message = caught instanceof Error ? caught.message : 'Demo could not stop.';
     setTransportError(message);
   }
 }
 
-/** Spacebar / click — start session; after that toggle play/stop. */
+/** Enter instrument — unlock audio and load preset; does not start demo. */
+export async function enterInstrumentSession(
+  _source: TransportActionSource = 'ui',
+): Promise<void> {
+  if (isSessionStarted()) {
+    return;
+  }
+
+  if (sessionStartPromise) {
+    return sessionStartPromise;
+  }
+
+  patchTransportStore({ sessionStarted: true, transportState: 'loading' });
+  resetKeyboardOnboarding();
+
+  sessionStartPromise = (async () => {
+    const ready = await ensureInstrumentAudio();
+    if (!ready) {
+      patchTransportStore({
+        sessionStarted: false,
+        transportState: 'idle',
+        ambientActive: false,
+      });
+      resetKeyboardOnboarding();
+      return;
+    }
+
+    patchTransportStore({ transportState: 'ready', ambientActive: false, chordActive: false });
+    syncTransportPlayingState();
+  })().finally(() => {
+    sessionStartPromise = null;
+  });
+
+  return sessionStartPromise;
+}
+
+/** Spacebar / click — enter session first; after that toggle demo only. */
 export async function transportStartSession(
   source: TransportActionSource = 'keyboard',
 ): Promise<void> {
   if (!isSessionStarted()) {
-    if (sessionStartPromise) {
-      return sessionStartPromise;
-    }
-
-    patchTransportStore({ sessionStarted: true, transportState: 'loading' });
-
-    sessionStartPromise = (async () => {
-      const ready = await ensureInstrumentAudio();
-      if (!ready) {
-        patchTransportStore({ sessionStarted: false, transportState: 'idle' });
-        return;
-      }
-
-      await transportPlay(source);
-    })().finally(() => {
-      sessionStartPromise = null;
-    });
-
-    return sessionStartPromise;
+    await enterInstrumentSession(source);
+    return;
   }
 
   await toggleTransportPlayStop(source);
 }
 
-/** Spacebar / primary transport toggle — ambient play/stop only. */
+/** Spacebar / primary transport toggle — demo play/stop only. */
 export async function toggleTransportPlayStop(source: TransportActionSource = 'keyboard'): Promise<void> {
   if (isTransportPlaying()) {
     await transportStop(source);

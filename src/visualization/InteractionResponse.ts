@@ -174,12 +174,12 @@ export function detectInteraction(
   );
 
   const isInteracting =
-    boost > 0.08 ||
-    input.sliderDelta > 0.003 ||
-    input.presetTransition > 0.06 ||
-    input.interactionBoost > 8 ||
+    boost > 0.05 ||
+    input.sliderDelta > 0.002 ||
+    input.presetTransition > 0.04 ||
+    input.interactionBoost > 5 ||
     input.activeNotes.length > 0 ||
-    (input.pointerActive && input.pointerActivity > 0.05) ||
+    (input.pointerActive && input.pointerActivity > 0.03) ||
     input.isTouch;
 
   return {
@@ -205,7 +205,7 @@ export function computeInteractionFrame(
   return {
     profile,
     interactionIntensity: intensity,
-    interactionBoost: detected.isInteracting ? clamp01(detected.boost * intensity * 0.55) : 0,
+    interactionBoost: detected.isInteracting ? clamp01(detected.boost * intensity * 0.85) : 0,
     isInteracting: detected.isInteracting,
     activeSource: detected.activeSource,
     limits: config.limits,
@@ -258,17 +258,17 @@ export function amplifyBehaviorForInteraction(
   const preset = frame.presetPulse;
 
   return {
-    density: clampDensity(behavior.density + b * 0.12 * i, frame),
-    speed: behavior.speed * (1 + b * 1.8 * i),
-    spread: clamp01(behavior.spread + b * 0.55 * i + pointer * 0.25),
-    brightness: clamp01(behavior.brightness + b * 0.45 * i + note * 0.35),
-    jitter: clamp01(behavior.jitter + b * 0.65 * i + control * 0.3 + note * 0.2),
-    scale: clampGlyphScale(behavior.scale + b * 0.35 * i + note * 0.25, frame),
-    distortion: clamp01(behavior.distortion + b * 0.5 * i + control * 0.35 + preset * 0.2),
-    symbolComplexity: clamp01(behavior.symbolComplexity + b * 0.4 * i + note * 0.3),
-    rareEventRate: clamp01(behavior.rareEventRate + b * 0.35 * i + preset * 0.25),
-    growthRate: behavior.growthRate + b * 0.65 * i + control * 0.35,
-    decayRate: clamp01(behavior.decayRate - b * 0.15 * i),
+    density: clampDensity(behavior.density + b * 0.22 * i, frame),
+    speed: behavior.speed * (1 + b * 2.6 * i),
+    spread: clamp01(behavior.spread + b * 0.75 * i + pointer * 0.35),
+    brightness: clamp01(behavior.brightness + b * 0.58 * i + note * 0.45),
+    jitter: clamp01(behavior.jitter + b * 0.85 * i + control * 0.4 + note * 0.28),
+    scale: clampGlyphScale(behavior.scale + b * 0.55 * i + note * 0.35, frame),
+    distortion: clamp01(behavior.distortion + b * 0.68 * i + control * 0.45 + preset * 0.28),
+    symbolComplexity: clamp01(behavior.symbolComplexity + b * 0.55 * i + note * 0.42),
+    rareEventRate: clamp01(behavior.rareEventRate + b * 0.48 * i + preset * 0.32),
+    growthRate: behavior.growthRate + b * 0.85 * i + control * 0.45,
+    decayRate: clamp01(behavior.decayRate - b * 0.2 * i),
   };
 }
 

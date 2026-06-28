@@ -1,5 +1,24 @@
 /* Unified playback transport — always visible, 44px min touch targets on mobile */
 
+.unified-transport-shell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--plantasia-space-xs);
+  margin: 0 var(--plantasia-space-sm) var(--plantasia-space-sm);
+  width: calc(100% - var(--plantasia-space-lg));
+}
+
+.unified-transport__hint {
+  color: var(--plantasia-color-text-secondary);
+  font-family: var(--plantasia-font-mono);
+  font-size: var(--plantasia-font-size-xs);
+  letter-spacing: var(--plantasia-letter-spacing-ui);
+  line-height: 1.35;
+  margin: 0;
+  padding: 0 var(--plantasia-space-xs);
+  text-align: center;
+}
+
 .unified-transport {
   align-items: center;
   backdrop-filter: blur(8px);
@@ -10,9 +29,9 @@
   flex-wrap: wrap;
   gap: var(--plantasia-space-sm);
   justify-content: space-between;
-  margin: 0 var(--plantasia-space-sm) var(--plantasia-space-sm);
+  margin: 0;
   padding: var(--plantasia-space-sm) var(--plantasia-space-md);
-  width: calc(100% - var(--plantasia-space-lg));
+  width: 100%;
 }
 
 .unified-transport__playback,
@@ -113,10 +132,11 @@
 
 .unified-transport__status {
   align-items: baseline;
-  display: none;
+  display: flex;
   flex-direction: column;
   font-family: var(--plantasia-font-mono);
   font-size: var(--plantasia-font-size-xs);
+  flex-shrink: 0;
   gap: 0.125rem;
   letter-spacing: var(--plantasia-letter-spacing-ui);
   min-width: 4.5rem;
@@ -150,20 +170,17 @@
   }
 }
 
-@media (min-width: 640px) {
-  .unified-transport__status {
-    display: flex;
-  }
-}
-
 @media (max-width: 480px) {
+  .unified-transport-shell {
+    margin: 0;
+    width: 100%;
+  }
+
   .unified-transport {
     bottom: env(safe-area-inset-bottom, 0);
     flex-wrap: nowrap;
     gap: var(--plantasia-space-xs);
-    margin: 0;
     padding: var(--plantasia-space-sm);
-    width: 100%;
   }
 
   .unified-transport__btn {
@@ -176,7 +193,7 @@
   }
 
   .unified-transport__status {
-    display: none;
+    min-width: 3.25rem;
   }
 }
 

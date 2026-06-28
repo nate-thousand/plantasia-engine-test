@@ -28,6 +28,8 @@ export type EngineStoreState = {
   selectedDeviceId: string | null;
   selectedDeviceName: string | null;
   midiActivityTick: number;
+  /** First keyboard note this session — hides transport onboarding hint. */
+  hasKeyboardPlayed: boolean;
 };
 
 const initialState: EngineStoreState = {
@@ -43,6 +45,7 @@ const initialState: EngineStoreState = {
   selectedDeviceId: null,
   selectedDeviceName: null,
   midiActivityTick: 0,
+  hasKeyboardPlayed: false,
 };
 
 let state: EngineStoreState = { ...initialState };
@@ -91,7 +94,12 @@ export function registerNoteOn(
     activeNoteCount: activeNotes.length,
     inputEnergy: averageVelocity(activeNotes),
     lastNoteLabel: label,
+    ...(source === 'keyboard' ? { hasKeyboardPlayed: true } : {}),
   });
+}
+
+export function resetKeyboardOnboarding(): void {
+  patchEngineStore({ hasKeyboardPlayed: false });
 }
 
 export function registerNoteOff(midi: number): void {

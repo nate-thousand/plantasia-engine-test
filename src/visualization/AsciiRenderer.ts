@@ -103,6 +103,7 @@ export class AsciiRenderer {
     suppressShapeGridPaint?: boolean,
     interaction?: import('./InteractionResponse').InteractionFrameState,
     presetTransition?: number,
+    sessionStarted?: boolean,
   ): void {
     paintBotanicalScene({
       width: this.width,
@@ -126,6 +127,7 @@ export class AsciiRenderer {
       suppressShapeGridPaint,
       interaction,
       presetTransition,
+      sessionStarted,
       paint: (x, y, char, priority) => this.setChar(x, y, char, priority),
     });
   }

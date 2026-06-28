@@ -408,6 +408,7 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
         musicalColor,
         performance: performanceState,
         ambientActive,
+        sessionStarted,
         interaction,
       };
 
