@@ -1,7 +1,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/App';
+import { runDevBootGuard } from './dev/bootGuard';
 import './styles/main.scss';
+
+if (runDevBootGuard()) {
+  throw new Error('Stopped boot: open http://localhost:5270/ via npm run dev.');
+}
 
 const rootElement = document.getElementById('root');
 
@@ -14,5 +19,3 @@ createRoot(rootElement).render(
     <App />
   </StrictMode>,
 );
-
-window.clearTimeout(window.__PLANTASIA_BOOT_TIMEOUT__);

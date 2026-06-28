@@ -1,28 +1,27 @@
 # Testing Guide
 
-Verification procedures for `plantasia-engine-test` during foundation and feature development.
+Verification procedures for `plantasia-engine-test`.
 
 ## Requirements
 
 - Node.js 18+
 - npm
 - Modern browser (Chrome, Edge, Firefox, Safari)
-- Built `plantasia-sound-engine` at `../plantasia-sound-engine`
+- `plantasia-sound-engine` (installed from GitHub during `npm install`)
 
 ## Installation
 
 ```bash
-# Ensure sound engine is built
-cd ../plantasia-sound-engine
-npm install
-npm run build
-
-# Install playground
-cd ../plantasia-engine-test
+cd plantasia-engine-test
 npm install
 ```
 
-Expected: install completes without errors; `node_modules/plantasia-sound-engine` links to the local package.
+For local co-development with an unpublished engine checkout, link the sibling package:
+
+```bash
+cd ../plantasia-sound-engine && npm run build
+cd ../plantasia-engine-test && npm link ../plantasia-sound-engine
+```
 
 ## Type Check
 
@@ -32,18 +31,21 @@ npm run typecheck
 
 Expected: no TypeScript errors.
 
-## Development Server
+## Local Development
 
 ```bash
 npm run dev
 ```
 
+**URL:** http://localhost:5270/
+
 Expected:
 
-- Vite starts on **`http://localhost:5270/`** (fixed port; fails if already in use)
-- Browser opens automatically
-- Page shows: `Plantasia Engine Test — foundation loaded`
+- Vite starts on port **5270** (fails if already in use)
+- Fullscreen Plantasia instrument UI renders
+- ASCII organism centered; control dock at bottom
 - No console errors
+- No “Wrong server” warning (that guard is dev-only and removed from production builds)
 
 ## Production Build
 
@@ -55,51 +57,49 @@ npm run preview
 Expected:
 
 - `tsc -b` passes
-- Vite emits `dist/` with hashed assets
-- Preview server serves the production bundle
+- Vite emits `dist/` with bundled JS/CSS (~480 KB JS)
+- Preview at http://localhost:5270/ renders the same fullscreen UI
+
+## Production Deployment (Vercel)
+
+**URL:** https://plantasia-engine-test.vercel.app
+
+Expected:
+
+- Vercel serves the production bundle from `dist/`
+- Fullscreen Plantasia instrument UI renders
+- **No** “Wrong server” message — that warning must not appear on Vercel
+- Start Audio requires a user gesture (browser Web Audio policy)
+
+The app uses a standard Vite production entry (`/src/main.tsx` → bundled assets). Dev-only boot guards are gated with `import.meta.env.DEV` and are stripped from production builds.
 
 ## Sound Engine Dependency
 
-Verify the linked engine package resolves:
+Verify the engine package resolves:
 
 ```bash
 node -e "import('plantasia-sound-engine').then(m => console.log(Object.keys(m)))"
 ```
 
-Expected: exports include `PlantasiaEngine` and related public API symbols (exact keys depend on engine version).
+Expected: exports include `PlantasiaEngine` and related public API symbols.
 
-If import fails:
+If import fails after switching branches:
 
-1. Rebuild the sound engine: `cd ../plantasia-sound-engine && npm run build`
-2. Reinstall: `cd ../plantasia-engine-test && npm install`
+```bash
+npm install
+```
 
-## SCSS / Bootstrap
+## Checklist
 
-After `npm run dev`, inspect computed styles on `body`:
-
-- `background-color` should reflect `--plantasia-color-background`
-- `font-family` should reflect Bootstrap sans-serif mapping
-
-## Foundation Checklist
-
-| Check | Command / Action | Expected |
-|-------|------------------|----------|
+| Check | Command / URL | Expected |
+|-------|---------------|----------|
 | Install | `npm install` | Success |
 | Typecheck | `npm run typecheck` | No errors |
-| Dev server | `npm run dev` | Loads without console errors |
+| Local dev | http://localhost:5270/ | Fullscreen UI |
 | Build | `npm run build` | `dist/` created |
-| Engine link | `node -e "import('plantasia-sound-engine')..."` | Public exports available |
-| Folder structure | Manual review | All `src/` subdirectories present |
-| Docs | Manual review | README, ARCHITECTURE, ROADMAP, ASCII_GRAMMAR present |
+| Production | https://plantasia-engine-test.vercel.app | Fullscreen UI, no wrong-server warning |
+| Engine import | `node -e "import('plantasia-sound-engine')..."` | Public exports available |
 
 ## Future Feature Testing
 
-When audio, MIDI, sequencing, and visualization modules are implemented, extend this guide with:
-
-- Engine initialization smoke test
-- Preset load/switch verification
-- MIDI device attach/detach
-- ASCII state sync with audio events
-- Canvas frame rate baseline
-
-Track new procedures in `docs/engineering/` as subsystems land.
+When MIDI, sequencing, and visualization modules are implemented, extend this guide with subsystem smoke tests. Track new procedures in `docs/engineering/` as features land.

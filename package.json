@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "bootstrap": "5.0.2",
-    "plantasia-sound-engine": "file:../plantasia-sound-engine",
+    "plantasia-sound-engine": "github:nate-thousand/plantasia-sound-engine",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
