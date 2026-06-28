@@ -1,58 +1,79 @@
 /**
- * Plantasia design tokens — CSS custom properties.
- *
- * This file establishes the theme variable structure only.
- * Populate values as the design system is defined in docs/design/.
+ * Plantasia M14 — monochrome instrument tokens.
+ * Color accents deferred to future Camelot visual system.
  */
 
 :root {
-  /* Color — surfaces */
-  --plantasia-color-background: #081009;
-  --plantasia-color-surface: #0c120d;
-  --plantasia-color-surface-elevated: #0f1b10;
-  --plantasia-color-border: rgba(183, 220, 166, 0.2);
+  /* Surfaces */
+  --plantasia-color-background: #000000;
+  --plantasia-color-surface: #0a0a0a;
+  --plantasia-color-surface-elevated: #141414;
+  --plantasia-color-surface-muted: #1a1a1a;
+  --plantasia-color-border: rgba(255, 255, 255, 0.12);
+  --plantasia-color-border-strong: rgba(255, 255, 255, 0.28);
 
-  /* Color — text */
-  --plantasia-color-text-primary: #e7f2df;
-  --plantasia-color-text-secondary: #8b9f8c;
+  /* Text */
+  --plantasia-color-text-primary: #f5f5f5;
+  --plantasia-color-text-secondary: #8a8a8a;
+  --plantasia-color-text-muted: #5c5c5c;
 
-  /* Color — semantic */
-  --plantasia-color-primary: #48e870;
-  --plantasia-color-accent: #48e8c8;
-  --plantasia-color-organism: #48e870;
+  /* Semantic — monochrome only (Camelot hooks later) */
+  --plantasia-color-primary: #ffffff;
+  --plantasia-color-accent: #cccccc;
+  --plantasia-color-organism: #ffffff;
 
   /* Typography */
-  --plantasia-font-sans: system-ui, sans-serif;
-  --plantasia-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --plantasia-font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --plantasia-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  /* Spacing scale */
+  --plantasia-font-size-display: 1.375rem;
+  --plantasia-font-size-title: 0.6875rem;
+  --plantasia-font-size-label: 0.625rem;
+  --plantasia-font-size-value: 0.5625rem;
+  --plantasia-font-size-status: 0.5rem;
+
+  --plantasia-letter-spacing-wide: 0.16em;
+  --plantasia-letter-spacing-ui: 0.08em;
+  --plantasia-letter-spacing-tight: 0.04em;
+
+  /* Spacing */
   --plantasia-space-unit: 1rem;
+  --plantasia-space-2xs: 0.125rem;
   --plantasia-space-xs: 0.25rem;
-  --plantasia-space-sm: 0.375rem;
-  --plantasia-space-md: 0.625rem;
+  --plantasia-space-sm: 0.5rem;
+  --plantasia-space-md: 0.75rem;
   --plantasia-space-lg: 1rem;
+  --plantasia-space-xl: 1.5rem;
+  --plantasia-space-2xl: 2rem;
 
-  /* Typography scale — mono UI */
-  --plantasia-font-size-xs: 0.5625rem;
-  --plantasia-font-size-sm: 0.625rem;
-  --plantasia-font-size-md: 0.75rem;
-  --plantasia-letter-spacing-wide: 0.14em;
-  --plantasia-letter-spacing-ui: 0.06em;
+  /* Layout */
+  --plantasia-touch-target: 2.75rem;
+  --plantasia-control-height: 2.75rem;
+  --plantasia-knob-size: 4rem;
+  --plantasia-panel-padding: var(--plantasia-space-md);
+  --plantasia-module-gap: var(--plantasia-space-md);
+  --plantasia-surface-max-width: 72rem;
 
   /* Radius */
-  --plantasia-radius-sm: 0.125rem;
-  --plantasia-radius-md: 0.25rem;
-  --plantasia-radius-lg: 0.75rem;
+  --plantasia-radius-sm: 2px;
+  --plantasia-radius-md: 4px;
+  --plantasia-radius-lg: 6px;
+
+  /* Stroke */
+  --plantasia-stroke-thin: 1px;
+  --plantasia-stroke-medium: 1.5px;
 
   /* Motion */
-  --plantasia-duration-fast: 120ms;
-  --plantasia-duration-normal: 240ms;
-  --plantasia-duration-slow: 480ms;
-  --plantasia-duration-scene: 1400ms;
+  --plantasia-duration-fast: 100ms;
+  --plantasia-duration-normal: 200ms;
+  --plantasia-duration-slow: 360ms;
+  --plantasia-duration-scene: 480ms;
   --plantasia-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --plantasia-ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+  --plantasia-ease-spring: cubic-bezier(0.34, 1.2, 0.64, 1);
 
-  /* Interactive surfaces */
-  --plantasia-color-primary-muted: color-mix(in srgb, var(--plantasia-color-primary) 10%, transparent);
-  --plantasia-color-primary-soft: color-mix(in srgb, var(--plantasia-color-primary) 14%, transparent);
+  /* Interactive */
+  --plantasia-color-primary-muted: rgba(255, 255, 255, 0.06);
+  --plantasia-color-primary-soft: rgba(255, 255, 255, 0.1);
+  --plantasia-focus-ring: 0 0 0 2px #000, 0 0 0 3px rgba(255, 255, 255, 0.85);
 }

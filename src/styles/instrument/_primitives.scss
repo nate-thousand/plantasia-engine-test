@@ -1,0 +1,296 @@
+/* M14 — shared instrument control primitives */
+
+.instr-btn {
+  align-items: center;
+  background: var(--plantasia-color-surface-elevated);
+  border: var(--plantasia-stroke-thin) solid var(--plantasia-color-border);
+  border-radius: var(--plantasia-radius-sm);
+  color: var(--plantasia-color-text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: var(--plantasia-font-mono);
+  font-size: var(--plantasia-font-size-label);
+  font-weight: 500;
+  justify-content: center;
+  letter-spacing: var(--plantasia-letter-spacing-wide);
+  line-height: 1;
+  min-height: var(--plantasia-touch-target);
+  min-width: var(--plantasia-touch-target);
+  padding: 0 var(--plantasia-space-md);
+  text-transform: uppercase;
+  transition:
+    background-color var(--plantasia-duration-fast) var(--plantasia-ease-out),
+    border-color var(--plantasia-duration-fast) var(--plantasia-ease-out),
+    color var(--plantasia-duration-fast) var(--plantasia-ease-out),
+    transform var(--plantasia-duration-fast) var(--plantasia-ease-spring);
+
+  &:hover:not(:disabled) {
+    background: var(--plantasia-color-surface-muted);
+    border-color: var(--plantasia-color-border-strong);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+
+  &:focus-visible {
+    box-shadow: var(--plantasia-focus-ring);
+    outline: none;
+  }
+
+  &:disabled {
+    color: var(--plantasia-color-text-muted);
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  &--active {
+    background: var(--plantasia-color-text-primary);
+    border-color: var(--plantasia-color-text-primary);
+    color: var(--plantasia-color-background);
+  }
+
+  &--ghost {
+    background: transparent;
+  }
+
+  &--compact {
+    font-size: var(--plantasia-font-size-value);
+    min-height: 2rem;
+    min-width: 2rem;
+    padding: 0 var(--plantasia-space-sm);
+  }
+}
+
+.instr-select {
+  appearance: none;
+  background: var(--plantasia-color-surface-elevated)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%238a8a8a' d='M1 1l4 4 4-4'/%3E%3C/svg%3E")
+    no-repeat right 0.65rem center;
+  border: var(--plantasia-stroke-thin) solid var(--plantasia-color-border);
+  border-radius: var(--plantasia-radius-sm);
+  color: var(--plantasia-color-text-primary);
+  cursor: pointer;
+  font-family: var(--plantasia-font-mono);
+  font-size: var(--plantasia-font-size-label);
+  letter-spacing: var(--plantasia-letter-spacing-ui);
+  min-height: var(--plantasia-control-height);
+  padding: 0 1.75rem 0 var(--plantasia-space-md);
+  text-transform: uppercase;
+  transition: border-color var(--plantasia-duration-fast) var(--plantasia-ease-out);
+  width: 100%;
+
+  &:hover:not(:disabled) {
+    border-color: var(--plantasia-color-border-strong);
+  }
+
+  &:focus-visible {
+    box-shadow: var(--plantasia-focus-ring);
+    outline: none;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+}
+
+.instr-switch {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: var(--plantasia-space-sm);
+  min-height: var(--plantasia-touch-target);
+  user-select: none;
+
+  &__track {
+    background: var(--plantasia-color-surface-muted);
+    border: var(--plantasia-stroke-thin) solid var(--plantasia-color-border);
+    border-radius: 999px;
+    flex-shrink: 0;
+    height: 1.25rem;
+    position: relative;
+    transition: background-color var(--plantasia-duration-normal) var(--plantasia-ease-out);
+    width: 2.25rem;
+
+    &::after {
+      background: var(--plantasia-color-text-secondary);
+      border-radius: 50%;
+      content: '';
+      height: 0.875rem;
+      left: 2px;
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      transition:
+        left var(--plantasia-duration-normal) var(--plantasia-ease-spring),
+        background-color var(--plantasia-duration-normal) var(--plantasia-ease-out);
+      width: 0.875rem;
+    }
+  }
+
+  &__input {
+    height: 0;
+    opacity: 0;
+    position: absolute;
+    width: 0;
+
+    &:focus-visible + .instr-switch__track {
+      box-shadow: var(--plantasia-focus-ring);
+    }
+
+    &:checked + .instr-switch__track {
+      background: var(--plantasia-color-text-primary);
+
+      &::after {
+        background: var(--plantasia-color-background);
+        left: calc(100% - 0.875rem - 2px);
+      }
+    }
+
+    &:disabled + .instr-switch__track {
+      opacity: 0.45;
+    }
+  }
+
+  &__label {
+    color: var(--plantasia-color-text-secondary);
+    font-family: var(--plantasia-font-mono);
+    font-size: var(--plantasia-font-size-label);
+    letter-spacing: var(--plantasia-letter-spacing-wide);
+    text-transform: uppercase;
+  }
+}
+
+.instr-knob {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--plantasia-space-xs);
+  min-width: 4.5rem;
+  touch-action: none;
+  user-select: none;
+
+  &--active .instr-knob__label {
+    color: var(--plantasia-color-text-primary);
+  }
+
+  &--learn .instr-knob__label {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  &--disabled {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  &__body {
+    cursor: ns-resize;
+    height: var(--plantasia-knob-size);
+    position: relative;
+    width: var(--plantasia-knob-size);
+  }
+
+  &__svg {
+    display: block;
+    height: 100%;
+    width: 100%;
+  }
+
+  &__ring-bg {
+    fill: none;
+    stroke: var(--plantasia-color-border);
+    stroke-width: 2;
+  }
+
+  &__ring-value {
+    fill: none;
+    stroke: var(--plantasia-color-text-primary);
+    stroke-linecap: round;
+    stroke-width: 2;
+    transition: stroke-dashoffset var(--plantasia-duration-normal) var(--plantasia-ease-out);
+  }
+
+  &__cap {
+    fill: var(--plantasia-color-surface-elevated);
+    stroke: var(--plantasia-color-border-strong);
+    stroke-width: 1;
+  }
+
+  &__indicator {
+    stroke: var(--plantasia-color-text-primary);
+    stroke-linecap: round;
+    stroke-width: 2;
+  }
+
+  &__label {
+    background: none;
+    border: none;
+    color: var(--plantasia-color-text-secondary);
+    cursor: inherit;
+    font-family: var(--plantasia-font-mono);
+    font-size: var(--plantasia-font-size-label);
+    letter-spacing: var(--plantasia-letter-spacing-wide);
+    padding: 0;
+    text-transform: uppercase;
+
+    &:focus-visible {
+      box-shadow: var(--plantasia-focus-ring);
+      outline: none;
+    }
+  }
+
+  &__value {
+    color: var(--plantasia-color-text-muted);
+    font-family: var(--plantasia-font-mono);
+    font-size: var(--plantasia-font-size-value);
+    letter-spacing: var(--plantasia-letter-spacing-tight);
+    tabular-nums: true;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.instr-meter {
+  background: var(--plantasia-color-surface-muted);
+  border: var(--plantasia-stroke-thin) solid var(--plantasia-color-border);
+  border-radius: var(--plantasia-radius-sm);
+  height: 0.375rem;
+  overflow: hidden;
+  width: 100%;
+
+  &__fill {
+    background: var(--plantasia-color-text-primary);
+    height: 100%;
+    transition: width var(--plantasia-duration-normal) var(--plantasia-ease-out);
+    width: 0;
+  }
+}
+
+.instr-label {
+  color: var(--plantasia-color-text-muted);
+  font-family: var(--plantasia-font-mono);
+  font-size: var(--plantasia-font-size-status);
+  letter-spacing: var(--plantasia-letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.instr-hint {
+  color: var(--plantasia-color-text-muted);
+  font-family: var(--plantasia-font-mono);
+  font-size: var(--plantasia-font-size-status);
+  letter-spacing: var(--plantasia-letter-spacing-ui);
+  line-height: 1.45;
+}
+
+.instr-status-dot {
+  background: var(--plantasia-color-text-muted);
+  border-radius: 50%;
+  display: inline-block;
+  height: 0.375rem;
+  width: 0.375rem;
+
+  &--live {
+    background: var(--plantasia-color-text-primary);
+  }
+}

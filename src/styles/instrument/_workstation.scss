@@ -1,0 +1,383 @@
+/* M14 — fixed hardware workstation layout (replaces collapsible drawer) */
+
+.instrument-shell--m14 {
+  grid-template-rows: 1fr auto;
+}
+
+.instrument-workstation {
+  flex-shrink: 0;
+  max-height: min(44vh, 22rem);
+  min-height: 0;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.workstation-shell {
+  background: var(--plantasia-color-surface);
+  border-top: var(--plantasia-stroke-thin) solid var(--plantasia-color-border-strong);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: inherit;
+}
+
+.workstation-shell__toggle {
+  align-items: center;
+  background: var(--plantasia-color-surface-elevated);
+  border: none;
+  border-bottom: var(--plantasia-stroke-thin) solid var(--plantasia-color-border);
+  color: var(--plantasia-color-text-secondary);
+  cursor: pointer;
+  display: none;
+  font-family: var(--plantasia-font-mono);
+  font-size: var(--plantasia-font-size-label);
+  gap: var(--plantasia-space-sm);
+  justify-content: center;
+  letter-spacing: var(--plantasia-letter-spacing-wide);
+  min-height: var(--plantasia-touch-target);
+  padding: var(--plantasia-space-sm);
+  text-transform: uppercase;
+  width: 100%;
+}
+
+.workstation {
+  display: grid;
+  flex: 1;
+  gap: 0;
+  grid-template-columns: 10rem 2.2fr 1fr 1.15fr 0.95fr;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Module column ── */
+
+.ws-module {
+  border-right: var(--plantasia-stroke-thin) solid var(--plantasia-color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--plantasia-space-md);
+  min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: var(--plantasia-space-md) var(--plantasia-space-lg);
+  scrollbar-width: thin;
+
+  &:last-child {
+    border-right: none;
+  }
+
+  &__head {
+    align-items: baseline;
+    display: flex;
+    flex-shrink: 0;
+    gap: var(--plantasia-space-sm);
+  }
+
+  &__index {
+    color: var(--plantasia-color-text-muted);
+    font-family: var(--plantasia-font-mono);
+    font-size: var(--plantasia-font-size-status);
+    letter-spacing: var(--plantasia-letter-spacing-wide);
+  }
+
+  &__title {
+    color: var(--plantasia-color-text-primary);
+    font-family: var(--plantasia-font-mono);
+    font-size: var(--plantasia-font-size-title);
+    font-weight: 600;
+    letter-spacing: var(--plantasia-letter-spacing-wide);
+    margin: 0;
+    text-transform: uppercase;
+  }
+
+  &__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--plantasia-space-md);
+    min-height: 0;
+  }
+}
+
+.ws-module--transport {
+  padding-right: var(--plantasia-space-md);
+}
+
+/* ── Zones within modules ── */
+
+.ws-zone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--plantasia-space-sm);
+
+  &__label {
+    color: var(--plantasia-color-text-muted);
+    font-family: var(--plantasia-font-mono);
+    font-size: var(--plantasia-font-size-status);
+    letter-spacing: var(--plantasia-letter-spacing-wide);
+    text-transform: uppercase;
+  }
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--plantasia-space-sm);
+  }
+}
+
+.ws-knob-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--plantasia-space-lg);
+}
+
+.ws-action-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--plantasia-space-sm);
+}
+
+.ws-signal-row {
+  display: grid;
+  gap: var(--plantasia-space-sm);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* ── Transport column ── */
+
+.ws-transport-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--plantasia-space-xs);
+}
+
+.ws-preset-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--plantasia-space-sm);
+
+  &__name {
+    color: var(--plantasia-color-text-primary);
+    font-family: var(--plantasia-font-mono);
+    font-size: var(--plantasia-font-size-display);
+    font-weight: 500;
+    letter-spacing: var(--plantasia-letter-spacing-ui);
+    line-height: 1.15;
+    margin: 0;
+    word-break: break-word;
+  }
+
+  &__meta {
+    color: var(--plantasia-color-text-muted);
+    font-family: var(--plantasia-font-mono);
+    font-size: var(--plantasia-font-size-status);
+    letter-spacing: var(--plantasia-letter-spacing-wide);
+    text-transform: uppercase;
+  }
+
+  &__nav {
+    display: flex;
+    gap: var(--plantasia-space-xs);
+  }
+}
+
+.ws-transport-status {
+  margin-top: auto;
+}
+
+/* ── Status list (output module) ── */
+
+.ws-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--plantasia-space-xs);
+}
+
+.ws-status-line {
+  align-items: baseline;
+  display: grid;
+  gap: var(--plantasia-space-sm);
+  grid-template-columns: 3.5rem 1fr;
+
+  &__key {
+    color: var(--plantasia-color-text-muted);
+    font-family: var(--plantasia-font-mono);
+    font-size: var(--plantasia-font-size-status);
+    letter-spacing: var(--plantasia-letter-spacing-wide);
+    text-transform: uppercase;
+  }
+
+  &__val {
+    color: var(--plantasia-color-text-primary);
+    font-family: var(--plantasia-font-mono);
+    font-size: var(--plantasia-font-size-label);
+    letter-spacing: var(--plantasia-letter-spacing-ui);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* ── Graphs ── */
+
+.instr-graph {
+  background: var(--plantasia-color-background);
+  border: var(--plantasia-stroke-thin) solid var(--plantasia-color-border);
+  border-radius: var(--plantasia-radius-sm);
+  min-height: 3rem;
+  overflow: hidden;
+  position: relative;
+
+  &__svg {
+    display: block;
+    height: 3rem;
+    width: 100%;
+  }
+
+  &__bg {
+    fill: var(--plantasia-color-background);
+  }
+
+  &__axis {
+    stroke: var(--plantasia-color-border);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__curve,
+  &__trace {
+    fill: none;
+    stroke: var(--plantasia-color-text-primary);
+    stroke-width: 1.5;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__trace {
+    stroke-width: 1;
+  }
+
+  &__caption {
+    bottom: 2px;
+    color: var(--plantasia-color-text-muted);
+    font-family: var(--plantasia-font-mono);
+    font-size: 0.4375rem;
+    left: 4px;
+    letter-spacing: var(--plantasia-letter-spacing-wide);
+    position: absolute;
+    text-transform: uppercase;
+  }
+}
+
+/* ── Icon buttons ── */
+
+.instr-icon-btn {
+  align-items: center;
+  background: transparent;
+  border: var(--plantasia-stroke-thin) solid var(--plantasia-color-border-strong);
+  border-radius: var(--plantasia-radius-sm);
+  color: var(--plantasia-color-text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  height: var(--plantasia-touch-target);
+  justify-content: center;
+  transition:
+    background-color var(--plantasia-duration-fast) var(--plantasia-ease-out),
+    border-color var(--plantasia-duration-fast) var(--plantasia-ease-out),
+    transform var(--plantasia-duration-fast) var(--plantasia-ease-spring);
+  width: var(--plantasia-touch-target);
+
+  &:hover:not(:disabled) {
+    background: var(--plantasia-color-primary-muted);
+    border-color: var(--plantasia-color-text-primary);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.94);
+  }
+
+  &:focus-visible {
+    box-shadow: var(--plantasia-focus-ring);
+    outline: none;
+  }
+
+  &:disabled {
+    color: var(--plantasia-color-text-muted);
+    cursor: not-allowed;
+    opacity: 0.35;
+  }
+
+  &--active {
+    background: var(--plantasia-color-text-primary);
+    border-color: var(--plantasia-color-text-primary);
+    color: var(--plantasia-color-background);
+  }
+}
+
+.instr-icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* ── Mobile: collapsible deck ── */
+
+@media (max-width: 960px) {
+  .instrument-workstation {
+    max-height: none;
+  }
+
+  .workstation-shell__toggle {
+    display: flex;
+  }
+
+  .workstation-shell:not(.workstation-shell--open) .workstation {
+    display: none;
+  }
+
+  .workstation-shell--open .workstation {
+    display: flex;
+    flex-direction: column;
+    max-height: min(65vh, 28rem);
+    overflow-y: auto;
+  }
+
+  .workstation-shell--open .ws-module {
+    border-bottom: var(--plantasia-stroke-thin) solid var(--plantasia-color-border);
+    border-right: none;
+  }
+
+  .ws-signal-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.instr-waveform {
+  background: var(--plantasia-color-background);
+  border: var(--plantasia-stroke-thin) solid var(--plantasia-color-border);
+  border-radius: var(--plantasia-radius-sm);
+  height: 3rem;
+  overflow: hidden;
+  width: 100%;
+
+  &__svg {
+    display: block;
+    height: 100%;
+    width: 100%;
+  }
+
+  &__path {
+    fill: none;
+    stroke: var(--plantasia-color-text-primary);
+    stroke-width: 1.5;
+    vector-effect: non-scaling-stroke;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .instr-icon-btn,
+  .instr-knob__ring-value,
+  .instr-meter__fill {
+    transition: none;
+  }
+}

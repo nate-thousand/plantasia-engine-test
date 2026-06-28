@@ -1,0 +1,35 @@
+@import '../tokens/css-variables';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--plantasia-color-background);
+  color: var(--plantasia-color-text-primary);
+  font-family: var(--plantasia-font-sans);
+  line-height: 1.4;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: none;
+}

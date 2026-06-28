@@ -22,7 +22,7 @@ This repository is **not** the sound engine. Synthesis, presets, and Tone.js gra
 | Bundler | Vite |
 | UI runtime | React |
 | Language | TypeScript |
-| Styling | Bootstrap 5.0.2 + SCSS |
+| Styling | SCSS design tokens + instrument component system |
 | Modules | ES Modules (`"type": "module"`) |
 | Audio | `plantasia-sound-engine` + Tone.js (live input) |
 
@@ -33,7 +33,8 @@ plantasia-engine-test/
 ├── src/
 │   ├── app/                Application shell
 │   ├── audio/              EngineAdapter, presets, controls
-│   ├── components/         Control dock, overlays
+│   ├── components/         Instrument surface, transport, overlays
+│   │   └── instrument/     M14 modules + shared primitives
 │   ├── hooks/              useInstrument
 │   ├── input/              KeyboardInput, MidiInput, MidiRouter, noteMap
 │   ├── layouts/            InstrumentShell
@@ -77,7 +78,9 @@ npm install
 npm run dev
 ```
 
-Open **`http://localhost:5270/`** — fullscreen instrument with control dock at the bottom.
+Open **`http://localhost:5270/`** — fullscreen instrument with transport bar and collapsible control panel.
+
+UI architecture: [`docs/design/UI.md`](./docs/design/UI.md)
 
 ## Build
 
@@ -89,15 +92,15 @@ npm run preview     # Serve production build locally
 
 ## Playing the Instrument
 
-1. Press **▶ Play** on the transport bar (or **Space**) — unlocks Web Audio, loads the default preset, and plays
-2. Press **■ Stop** (or **Space** again) to release notes and return to ambient idle
+1. Press **Play** on the transport bar (or **Space**) — starts ambient soundscape
+2. Press **Stop** (or **Space** again) to stop ambient playback
 3. **Computer keyboard:** A–K row maps to C4–C5; Z/X shift octave (see [TESTING.md](./TESTING.md))
-4. **MIDI:** Open **menu** → Connect MIDI, select your device (e.g. Akai MPK Mini)
+4. **MIDI:** Open **Panel** → Connect MIDI, select your device (e.g. Akai MPK Mini)
    - Keys trigger notes with velocity → sound + ASCII visuals
    - Knobs send CC messages → sliders update (mold, tone, texture, bloom, growth, drift, mutation, energy)
    - Pads trigger the same transport actions as the UI (play, stop, hold, preset prev/next)
    - **Learn** mode: click Learn → select a control → move a knob to assign
-5. Change presets from the transport bar selector; open **menu** for sound, MIDI, keyboard, and viz settings
+5. Change presets from the transport bar; open **Panel** for sound, visual, performance, and output modules
 
 ### Transport shortcuts
 

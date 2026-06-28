@@ -10,6 +10,8 @@ import {
   transportStop,
 } from '../../transport/transportActions';
 import { transportStateLabel, useTransport } from '../../transport/useTransport';
+import { InstrButton } from '../instrument/primitives/InstrButton';
+import { InstrSelect } from '../instrument/primitives/InstrSelect';
 
 type UnifiedTransportProps = {
   instrument: UseInstrumentReturn;
@@ -17,36 +19,7 @@ type UnifiedTransportProps = {
   onMenuToggle: () => void;
 };
 
-function TransportIconButton({
-  label,
-  title,
-  disabled,
-  active,
-  primary,
-  onClick,
-}: {
-  label: string;
-  title: string;
-  disabled?: boolean;
-  active?: boolean;
-  primary?: boolean;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className={`unified-transport__btn${active ? ' unified-transport__btn--active' : ''}${primary ? ' unified-transport__btn--primary' : ''}`}
-      disabled={disabled}
-      title={title}
-      aria-label={title}
-      onClick={onClick}
-    >
-      {label}
-    </button>
-  );
-}
-
-/** Single playback transport — play/stop, preset, menu. Always visible. */
+/** M14 transport — play/stop, preset, panel toggle. Always visible. */
 export function UnifiedTransport({ instrument, menuOpen, onMenuToggle }: UnifiedTransportProps) {
   const transport = useTransport();
   const presetStore = useSyncExternalStore(subscribePresetStore, getPresetStore, getPresetStore);
@@ -97,47 +70,67 @@ export function UnifiedTransport({ instrument, menuOpen, onMenuToggle }: Unified
 
   return (
     <div
-      className="unified-transport"
+      className="instr-transport"
       data-transport-state={transport.transportState}
       data-midi-connected={midiConnected ? 'true' : 'false'}
       aria-label="Playback transport"
     >
-      <div className="unified-transport__playback">
-        <TransportIconButton
-          label={transport.isInitializing ? '…' : '▶'}
+      <div className="instr-transport__group" aria-label="Transport">
+        <InstrButton
+          variant="compact"
+          active={transport.isPlaying}
+          disabled={transport.isInitializing}
           title={
             transport.isPlaying
               ? 'Ambient playing'
               : 'Start ambient soundscape (Space)'
           }
-          disabled={transport.isInitializing}
-          active={transport.isPlaying}
-          primary
+          aria-label={
+            transport.isPlaying
+              ? 'Ambient playing'
+              : 'Start ambient soundscape'
+          }
           onClick={handlePlay}
-        />
-        <TransportIconButton
-          label="■"
-          title="Stop ambient soundscape (Space)"
+        >
+          {transport.isInitializing ? '…' : 'Play'}
+        </InstrButton>
+        <InstrButton
+          variant="compact"
           disabled={!transport.isPlaying}
           active={learn && midi.learnTarget === 'stop'}
+          title="Stop ambient soundscape (Space)"
+          aria-label="Stop ambient soundscape"
           onClick={handleStop}
-        />
+        >
+          Stop
+        </InstrButton>
+        <InstrButton
+          variant="compact"
+          disabled
+          title="Record — future placeholder"
+          aria-label="Record (future placeholder)"
+        >
+          Rec
+        </InstrButton>
       </div>
 
-      <div className="unified-transport__preset">
-        <TransportIconButton
-          label="◀"
-          title="Previous preset"
+      <div className="instr-transport__preset" aria-label="Preset">
+        <InstrButton
+          variant="compact"
           disabled={!canSelectPreset}
           active={learn && midi.learnTarget === 'presetPrevious'}
+          title="Previous preset"
+          aria-label="Previous preset"
           onClick={
             learn
               ? () => midi.onSelectLearnTarget('presetPrevious')
               : () => transportPresetPrevious()
           }
-        />
-        <select
-          className="unified-transport__select"
+        >
+          Prev
+        </InstrButton>
+        <InstrSelect
+          className="instr-transport__select"
           value={presetStore.activeIndex}
           disabled={!canSelectPreset}
           aria-label={`Preset: ${presetName}`}
@@ -162,35 +155,41 @@ export function UnifiedTransport({ instrument, menuOpen, onMenuToggle }: Unified
               </option>
             ))
           )}
-        </select>
-        <TransportIconButton
-          label="▶"
-          title="Next preset"
+        </InstrSelect>
+        <InstrButton
+          variant="compact"
           disabled={!canSelectPreset}
           active={learn && midi.learnTarget === 'presetNext'}
+          title="Next preset"
+          aria-label="Next preset"
           onClick={
             learn ? () => midi.onSelectLearnTarget('presetNext') : () => transportPresetNext()
           }
-        />
+        >
+          Next
+        </InstrButton>
       </div>
 
-      <div className="unified-transport__status" aria-live="polite">
-        <span className="unified-transport__state">
+      <div className="instr-transport__status" aria-live="polite">
+        <span className="instr-transport__preset-name">{presetName}</span>
+        <span className="instr-transport__meta">
           {transportStateLabel(transport.transportState, midiConnected)}
+          {presetStore.activeMetadata?.category
+            ? ` · ${formatCategoryLabel(presetStore.activeMetadata.category)}`
+            : null}
         </span>
-        {presetStore.activeMetadata?.category ? (
-          <span className="unified-transport__meta">
-            {formatCategoryLabel(presetStore.activeMetadata.category)}
-          </span>
-        ) : null}
       </div>
 
-      <TransportIconButton
-        label={menuOpen ? 'close' : 'menu'}
-        title={menuOpen ? 'Close settings' : 'Open settings'}
+      <InstrButton
+        variant="compact"
         active={menuOpen}
+        title={menuOpen ? 'Close settings' : 'Open settings'}
+        aria-expanded={menuOpen}
+        aria-controls="instrument-surface-panel"
         onClick={onMenuToggle}
-      />
+      >
+        {menuOpen ? 'Close' : 'Panel'}
+      </InstrButton>
     </div>
   );
 }

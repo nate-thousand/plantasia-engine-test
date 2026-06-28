@@ -40,7 +40,7 @@ Plantasia separates **synthesis** (library) from **application** (this repo). Th
 | `src/transport/` | Unified playback controller — single source for play/stop, hold, and transport state |
 | `src/systems/` | Cross-cutting coordinators (input, animation) |
 | `src/tokens/` | Design tokens — SCSS and CSS variables |
-| `src/styles/` | Global styles; Bootstrap SCSS entry |
+| `src/styles/` | Global styles; instrument SCSS entry |
 | `src/utils/` | Pure shared utilities |
 
 ## Audio Layer
@@ -59,12 +59,10 @@ See [src/audio/README.md](./src/audio/README.md) for subsystem contracts.
 
 ## Styling
 
-- **Bootstrap 5.0.2** imported via SCSS (`src/styles/main.scss`)
+- **Instrument UI (M14)** — monochrome design tokens + shared primitives ([`docs/design/UI.md`](./docs/design/UI.md))
 - **Theme tokens** defined as CSS custom properties (`src/tokens/_css-variables.scss`)
-- **Bootstrap overrides** reserved in `src/tokens/_bootstrap-variables.scss`
-- **Runtime mapping** in `src/styles/_bootstrap-theme.scss`
-
-No component-level Bootstrap customization in the foundation phase.
+- **Entry** — `src/styles/main.scss` imports base reset, app shell, and instrument primitives/surface
+- **Legacy** — Bootstrap SCSS files retained but not loaded in production bundle
 
 ## Dependency Boundary
 
@@ -155,7 +153,7 @@ All playback — UI, keyboard, MIDI, and programmatic — routes through one con
 - **Stop**: `stopAllNotes()` → clear active notes → `ready` (preset unchanged)
 - **Notes** (keyboard/MIDI): `transportNoteOn` / `transportNoteOff` with shared hold flag
 
-Settings drawer (`ControlDock`) holds sound, MIDI, keyboard hold, modulation, and viz — not duplicate transport controls.
+Settings drawer (`InstrumentSurface`) holds Sound, Visual, Performance, and Output modules — transport stays in `UnifiedTransport`.
 
 ## Sound World Metadata Flow
 

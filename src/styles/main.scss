@@ -1,4 +1,4 @@
-@import 'bootstrap-full';
+@import 'base';
 @import 'app-shell';
-@import 'unified-transport';
-@import 'control-dock';
+@import 'instrument/primitives';
+@import 'instrument/workstation';

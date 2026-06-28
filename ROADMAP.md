@@ -431,13 +431,41 @@ AsciiCanvasView → fullscreen <pre>
 - [ ] Direct engine parameter streaming to AsciiEngine
 - [ ] Canvas render loop scaffold (`src/canvas/`)
 
-## Milestone 14 — Application Shell Expansion
+## Milestone 14 — Instrument UI Redesign
 
-**Status:** Planned
+**Status:** Complete
 
-- [ ] Layout system (`src/layouts/`)
-- [ ] Core React components (`src/components/`)
-- [ ] Bootstrap component integration with design tokens
+Monochrome premium instrument surface. Visual/interaction only — 100% feature preservation.
+
+### Completed
+
+- [x] Monochrome design tokens (`src/tokens/_css-variables.scss`) — black/white/gray only in UI chrome
+- [x] Shared instrument primitives (button, select, switch, knob, panel, meter, waveform)
+- [x] Modular surface: Transport, Sound, Visual, Performance, Output
+- [x] `InstrumentSurface` replaces `ControlDock` drawer layout
+- [x] `UnifiedTransport` restyled with M14 transport bar + Record placeholder
+- [x] Rotary knobs for sound/modulation/visual parameters
+- [x] Visual Energy meter in Performance module
+- [x] Bootstrap bundle removed from `main.scss` (token + instrument SCSS only)
+- [x] UI architecture documented in [`docs/design/UI.md`](./docs/design/UI.md)
+
+### Modules
+
+| Module | Component | Contents |
+|--------|-----------|----------|
+| Transport | `UnifiedTransport.tsx` | Play, Stop, Rec (future), preset, panel |
+| Sound | `SoundModule.tsx` | Texture, Tone, Mold, Bloom + Growth/Drift/Mutation/Energy |
+| Visual | `VisualModule.tsx` | Particles, Contrast, Anim, Reduce Motion |
+| Performance | `PerformanceModule.tsx` | Visual Energy, MIDI, Keyboard, Preset |
+| Output | `OutputModule.tsx` | Master placeholder, live status |
+
+## Milestone 14 (legacy) — Application Shell Expansion
+
+**Status:** Superseded by Instrument UI Redesign above
+
+- [x] Layout system (`src/layouts/InstrumentShell.tsx`)
+- [x] Core React components (`src/components/instrument/`)
+- [x] Design token integration (Bootstrap replaced by instrument SCSS)
 
 ## Milestone 15 — Full Plantasia Foundation
 
