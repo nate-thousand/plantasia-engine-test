@@ -1,5 +1,5 @@
 import { ControlDock } from '../components/controls/ControlDock';
-import { OrganismView } from '../components/overlays/OrganismView';
+import { AsciiCanvasView } from '../components/overlays/AsciiCanvasView';
 import { TopOverlay } from '../components/overlays/TopOverlay';
 import { useInstrument } from '../hooks/useInstrument';
 import { InstrumentShell } from '../layouts/InstrumentShell';
@@ -24,7 +24,12 @@ export function App() {
           lastCcLabel={instrument.overlay.lastCcLabel}
         />
       }
-      visualizer={<OrganismView ascii={instrument.organismAscii} />}
+      visualizer={
+        <AsciiCanvasView
+          presetId={instrument.presets.items[instrument.presets.index]?.id ?? 'seed'}
+          presetName={instrument.overlay.presetName}
+        />
+      }
       controls={<ControlDock instrument={instrument} />}
     />
   );

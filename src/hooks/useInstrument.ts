@@ -215,6 +215,10 @@ export function useInstrument() {
     setHoldEnabled((current) => !current);
   }, []);
 
+  const setHold = useCallback((enabled: boolean) => {
+    setHoldEnabled(enabled);
+  }, []);
+
   useEffect(() => {
     initMidiPipeline();
 
@@ -222,6 +226,7 @@ export function useInstrument() {
       onPlay: play,
       onStop: stop,
       onToggleHold: toggleHold,
+      onSetHold: setHold,
       onPresetPrevious: () => void selectPreset(presetIndexRef.current - 1),
       onPresetNext: () => void selectPreset(presetIndexRef.current + 1),
       onPresetRandom: () =>
@@ -230,7 +235,7 @@ export function useInstrument() {
     });
 
     return () => registerMidiActionHandlers(null);
-  }, [play, stop, toggleHold, selectPreset]);
+  }, [play, stop, toggleHold, setHold, selectPreset]);
 
   useEffect(() => {
     return subscribeControlChanges((nextSound, nextModulation, source) => {

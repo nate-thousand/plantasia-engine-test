@@ -109,36 +109,43 @@ Keyboard / MIDI / Sliders / Preset
   Renderer → ASCII string → OrganismView
 ```
 
-## MIDI Pipeline (Milestone 10)
+## Procedural ASCII Engine (Milestone 11)
 
-MIDI logic lives outside React components.
+Real-time 60 FPS visualization replaces static organism snapshots.
 
 ```
-MIDI Device
-    ↓
-MidiInput.ts          (Web MIDI device connection)
-    ↓
-MidiMessageParser.ts  (note / CC / program change)
-    ↓
-MidiRouter.ts         (dispatch)
-    ├→ MidiLearn.ts + MidiControlMap.ts → controlStore → EngineAdapter
-    ├→ engineStore (active notes, velocity energy)
-    └→ action handlers (preset, transport, hold)
+engineStore + controlStore + midiStore
         ↓
-OrganismState → Renderer
+useAsciiVisualization (requestAnimationFrame)
+        ↓
+AsciiEngine.tick()
+  ├→ PlantGenerator — note → procedural plant structures
+  ├→ ParticleSystem — spores, leaves, wind, reverb particles
+  ├→ SoundMapping — sliders → envelope/LFO/effects viz params
+  ├→ PresetVisualThemes — per-preset ASCII ecosystem (characters, motion, growth)
+  ├→ ThemeTransition — smooth crossfade on preset change
+  └→ AsciiRenderer — priority-layer grid compositing
+        ↓
+AsciiCanvasView (responsive, accessibility-aware)
 ```
 
 | Module | Role |
 |--------|------|
-| `MidiDefaults.ts` | Standard CC map, MPK Mini fallback, pad defaults |
-| `MidiMessageParser.ts` | Parse raw MIDI bytes |
-| `MidiControlMap.ts` | CC → control target (learned → standard → MPK) |
-| `MidiLearn.ts` | Learn workflow |
-| `MidiStorage.ts` | `plantasia-midi-mappings` in localStorage |
-| `MidiRouter.ts` | Route messages to stores and engine |
-| `controlStore.ts` | Canonical slider values (UI + MIDI) |
-| `midiStore.ts` | Last message, detected CCs, learn state |
+| `AsciiEngine.ts` | Simulation orchestrator, frame tick |
+| `AsciiRenderer.ts` | Grid buffer, layer priority, string output |
+| `CharacterPalette.ts` | Botanical character categories |
+| `PlantGenerator.ts` | Procedural plants from notes/velocity/species |
+| `ParticleSystem.ts` | Spores, leaves, wind, echo/reverb particles |
+| `NoteEvents.ts` / `MidiEvents.ts` | Input-agnostic note spawn/release |
+| `PresetVisualThemes.ts` | Full preset visual theme definitions |
+| `ThemeTransition.ts` | Smooth preset crossfade |
+| `ThemeBehaviors.ts` | Per-theme sound parameter interpretation |
+| `PresetThemes.ts` | Re-exports theme resolution API |
+| `SoundMapping.ts` | Slider → synthesis visualization parameters |
+| `visualizationStore.ts` | Accessibility settings (localStorage) |
+
+The legacy `src/visuals/organism/` pipeline remains available for reference; the live instrument uses `src/visualization/`.
 
 ## Foundation Status
 
-Current build provides a fully MIDI-controllable instrument with note-driven ASCII visualization. See [ROADMAP.md](./ROADMAP.md).
+Current build provides a real-time procedural ASCII ecosystem driven by sound, MIDI, and presets. See [ROADMAP.md](./ROADMAP.md).

@@ -7,6 +7,7 @@ import {
   setBotanicalState,
 } from './controls';
 import { LiveVoiceRouter } from './liveVoice';
+import { startAudioTap } from './visualization/AudioTap';
 
 const LOG_PREFIX = '[Plantasia Engine Test]';
 
@@ -45,6 +46,7 @@ class EngineAdapter {
     console.info(`${LOG_PREFIX} Initializing audio context…`);
     await instance.init();
     this.audioStarted = true;
+    startAudioTap();
     resetAudioControls();
 
     const presetCount = instance.presets.length;

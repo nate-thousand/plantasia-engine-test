@@ -23,7 +23,15 @@ export type MidiPadAction =
   | 'presetRandom'
   | 'hold'
   | 'energyBurst'
-  | 'mutationBurst';
+  | 'mutationBurst'
+  | 'bloomBurst'
+  | 'toneBurst'
+  | 'textureBurst'
+  | 'growthBurst'
+  | 'driftBurst'
+  | 'volumeBoost'
+  | 'reverbBurst'
+  | 'chorusBurst';
 
 /** Slider / action targets exposed in the learn UI. */
 export const MIDI_LEARN_TARGETS: MidiControlTarget[] = [

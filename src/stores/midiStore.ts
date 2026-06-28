@@ -1,5 +1,6 @@
 import type { MidiControlTarget } from '../input/MidiDefaults';
 import { getMappingCount } from '../input/MidiControlMap';
+import type { MidiVisualEffect } from '../visualization/ThemeMidiEffects';
 
 export type MidiStoreState = {
   learnEnabled: boolean;
@@ -13,6 +14,11 @@ export type MidiStoreState = {
   lastLearnedTarget: MidiControlTarget | null;
   interactionBurst: number;
   unknownPadLog: string | null;
+  pitchBend: number;
+  modWheel: number;
+  channelPressure: number;
+  midiVisualEffect: MidiVisualEffect | null;
+  isMpkMini: boolean;
 };
 
 const initialState: MidiStoreState = {
@@ -27,10 +33,16 @@ const initialState: MidiStoreState = {
   lastLearnedTarget: null,
   interactionBurst: 0,
   unknownPadLog: null,
+  pitchBend: 0,
+  modWheel: 64,
+  channelPressure: 0,
+  midiVisualEffect: null,
+  isMpkMini: false,
 };
 
 let state: MidiStoreState = { ...initialState };
 const listeners = new Set<() => void>();
+let effectTick = 0;
 
 export function getMidiStore(): MidiStoreState {
   return state;
@@ -55,11 +67,47 @@ export function recordCcDetection(controller: number, value: number): void {
     lastCcNumber: controller,
     lastCcValue: value,
     detectedCcs: { ...state.detectedCcs, [controller]: value },
+    modWheel: controller === 1 ? value : state.modWheel,
   });
 }
 
+export function setPitchBend(normalized: number): void {
+  patchMidiStore({ pitchBend: Math.max(-1, Math.min(1, normalized)) });
+}
+
+export function setChannelPressure(pressure: number): void {
+  patchMidiStore({ channelPressure: pressure });
+}
+
+export function setMpkMiniActive(active: boolean): void {
+  patchMidiStore({ isMpkMini: active });
+}
+
 export function pulseInteractionBurst(amount: number): void {
-  patchMidiStore({ interactionBurst: amount });
+  patchMidiStore({ interactionBurst: Math.max(state.interactionBurst, amount) });
+}
+
+export function decayInteractionBurst(step = 1): void {
+  if (state.interactionBurst > 0) {
+    patchMidiStore({ interactionBurst: Math.max(0, state.interactionBurst - step) });
+  }
+}
+
+export function triggerMidiVisualEffect(
+  kind: MidiVisualEffect['kind'],
+  intensity: number,
+  controlTarget?: string,
+): void {
+  effectTick += 1;
+  patchMidiStore({
+    midiVisualEffect: {
+      kind,
+      intensity: Math.max(0, Math.min(127, intensity)),
+      tick: effectTick,
+      controlTarget,
+    },
+    interactionBurst: Math.max(state.interactionBurst, Math.round((intensity / 127) * 40 * 5)),
+  });
 }
 
 export function logUnknownPad(message: string): void {

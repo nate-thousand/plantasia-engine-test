@@ -2,6 +2,8 @@ type ControlSliderProps = {
   label: string;
   value: number;
   onChange: (value: number) => void;
+  min?: number;
+  max?: number;
   disabled?: boolean;
   placeholder?: boolean;
   highlighted?: boolean;
@@ -13,6 +15,8 @@ export function ControlSlider({
   label,
   value,
   onChange,
+  min = 0,
+  max = 100,
   disabled = false,
   placeholder = false,
   highlighted = false,
@@ -23,7 +27,7 @@ export function ControlSlider({
     <label
       className={`control-slider${placeholder ? ' control-slider--placeholder' : ''}${
         disabled ? ' control-slider--disabled' : ''
-      }${highlighted ? ' control-slider--midi' : ''}${learnActive ? ' control-slider--learn' : ''}`}
+      }${highlighted ? ' control-slider--active control-slider--midi' : ''}${learnActive ? ' control-slider--learn' : ''}`}
     >
       <span className="control-slider__label">
         {onSelectLearn ? (
@@ -41,8 +45,8 @@ export function ControlSlider({
       </span>
       <input
         type="range"
-        min={0}
-        max={100}
+        min={min}
+        max={max}
         step={1}
         value={value}
         disabled={disabled}

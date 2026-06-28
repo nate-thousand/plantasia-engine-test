@@ -4,6 +4,7 @@ import {
   STANDARD_CC_MAP,
   type MidiControlTarget,
 } from './MidiDefaults';
+import { isMpkKnobCc } from './MidiChannels';
 import { loadMidiMappings, type StoredMidiMapping } from './MidiStorage';
 
 let cachedMappings: StoredMidiMapping[] = loadMidiMappings().mappings;
@@ -27,7 +28,10 @@ function learnedTarget(cc: number, channel?: number): MidiControlTarget | null {
   return match?.target ?? null;
 }
 
-/** Resolve a CC number to a control target using learned → standard → MPK fallback. */
+/**
+ * Resolve CC → control target.
+ * MPK Mini: learned → knobs CC 1–8 → GM standard (knobs win over GM on 1/2/7 etc.).
+ */
 export function resolveCcTarget(
   cc: number,
   deviceName: string | null,
@@ -36,6 +40,10 @@ export function resolveCcTarget(
   const learned = learnedTarget(cc, channel);
   if (learned) {
     return learned;
+  }
+
+  if (isMpkMiniDevice(deviceName) && isMpkKnobCc(cc)) {
+    return MPK_MINI_KNOB_CC_MAP[cc] ?? null;
   }
 
   const standard = STANDARD_CC_MAP[cc];
@@ -50,7 +58,6 @@ export function resolveCcTarget(
   return null;
 }
 
-/** All CC numbers mapped to a target (for UI display). */
 export function getCcAssignments(): Record<number, MidiControlTarget> {
   const assignments: Record<number, MidiControlTarget> = { ...STANDARD_CC_MAP };
 

@@ -367,22 +367,70 @@ MIDI Device → MidiInput → MidiMessageParser → MidiRouter
 
 ---
 
-## Milestone 11 — Sequencing
+## Milestone 11 — Procedural ASCII Visualization Engine
+
+**Status:** Complete
+
+### Goals
+
+Replace static organism snapshots with a real-time 60 FPS procedural ASCII ecosystem. Every sound parameter influences generated artwork. The engine is modular and independent from synthesis internals while subscribing to instrument state.
+
+### Tasks
+
+- [x] `src/visualization/` — `AsciiEngine`, `AsciiRenderer`, `CharacterPalette`, `PlantGenerator`, `ParticleSystem`, `NoteEvents`, `MidiEvents`, `PresetThemes`, `SoundMapping`
+- [x] Fullscreen responsive ASCII canvas (`AsciiCanvasView`) with ResizeObserver grid scaling
+- [x] Botanical character palette (seeds, moss, vines, flowers, spores, etc.)
+- [x] Sound mapping — note/velocity/pitch/envelope/LFO/effects → plant growth, particles, wind
+- [x] Preset themes — per-preset species, palette, growth style, density, animation speed
+- [x] Procedural animation — growing, blooming, swaying, branching, release, falling leaves, spores
+- [x] Input-agnostic note events (keyboard, MIDI, sequencer, automation share one path)
+- [x] Accessibility — density, animation speed, character size, contrast, reduce motion (`visualizationStore`)
+- [x] `requestAnimationFrame` render loop via `useAsciiVisualization`
+
+### Architecture
+
+```
+engineStore + controlStore + midiStore
+        ↓
+useAsciiVisualization (60 FPS)
+        ↓
+AsciiEngine.tick()
+  ├→ PlantGenerator (note → plant structures)
+  ├→ ParticleSystem (spores, leaves, wind, reverb)
+  ├→ SoundMapping (sliders → synth viz params)
+  └→ AsciiRenderer (layer compositing)
+        ↓
+AsciiCanvasView → fullscreen <pre>
+```
+
+### Definition of Done
+
+- [x] Fullscreen responsive ASCII visualization
+- [x] Procedural plant generation — no static art assets
+- [x] MIDI + keyboard + slider reactive
+- [x] Preset-specific visual themes
+- [x] Smooth animation with reduce-motion support
+- [x] Modular architecture, documented
+- [x] No changes to `plantasia-sound-engine`
+
+---
+
+## Milestone 12 — Sequencing
 
 **Status:** Planned
 
 - [ ] Transport and pattern playback (`src/audio/sequencing/`)
 - [ ] Hook engine sequencer exports when available
 
-## Milestone 12 — Visualization Hooks
+## Milestone 13 — Engine Visualization Hooks
 
 **Status:** Planned
 
 - [ ] Audio/state tap layer (`src/audio/visualization/`)
-- [ ] Engine-driven organism updates (`Node.applyEngineUpdate`)
+- [ ] Direct engine parameter streaming to AsciiEngine
 - [ ] Canvas render loop scaffold (`src/canvas/`)
 
-## Milestone 13 — Application Shell Expansion
+## Milestone 14 — Application Shell Expansion
 
 **Status:** Planned
 
@@ -390,7 +438,7 @@ MIDI Device → MidiInput → MidiMessageParser → MidiRouter
 - [ ] Core React components (`src/components/`)
 - [ ] Bootstrap component integration with design tokens
 
-## Milestone 14 — Full Plantasia Foundation
+## Milestone 15 — Full Plantasia Foundation
 
 **Status:** Planned
 

@@ -150,6 +150,38 @@ After Start Audio, each key maps to a grammar-defined organism form:
 
 ---
 
+## Procedural ASCII Engine (Milestone 11)
+
+After Start Audio, the main visualization area renders a real-time procedural ecosystem at ~60 FPS.
+
+**Verify:**
+
+1. Start Audio — dormant `○` appears, then idle sprout when active
+2. Press keys — plants spawn at pitch-mapped positions, grow procedurally
+3. Release keys — plants fade, falling leaves and spores disperse
+4. Move sliders — density, wind, bloom, mutation affect visuals
+5. Change preset — species, palette, and growth style shift
+6. Visual control group — adjust Density, Anim, Size, Contrast, Reduce Motion
+7. Resize browser — grid scales responsively (desktop, tablet, mobile)
+8. `prefers-reduced-motion` — auto-enables reduce motion on first visit
+
+**Sound → visual mapping checks:**
+
+| Parameter | Visual effect |
+|-----------|---------------|
+| Note on | New plant structure spawns |
+| Velocity | Growth speed + brightness |
+| Pitch | Vertical + horizontal placement |
+| Tone / filter | Density + node brightness |
+| Texture / resonance | Branching frequency |
+| Bloom | Branch length / flower nodes |
+| Growth | Attack / release envelope |
+| Drift / LFO | Sway + wind particles |
+| Mutation | Spore / disruption species |
+| Energy | Background density + particle count |
+
+---
+
 ## Full MIDI Control Mapping (Milestone 10)
 
 ### MIDI Notes
@@ -186,7 +218,10 @@ Unmapped CCs appear in the MIDI control group as "Detected: CCn" and in the top 
 4. Mapping saves to `localStorage` key `plantasia-midi-mappings`
 5. Reload page — learned mapping persists and overrides defaults
 
-### MIDI Pads (Default — MPK Mini Bank A)
+### MIDI Pads (Default — MPK Mini Bank A, channel 10 only)
+
+Pad note actions apply **only on MIDI channel 10** (factory MPK pad channel).  
+**Keyboard keys on channel 1 always play notes** — they never change preset, even if the note number overlaps pad assignments (48–55).
 
 | Pad Note | Action |
 |----------|--------|
@@ -199,7 +234,34 @@ Unmapped CCs appear in the MIDI control group as "Detected: CCn" and in the top 
 | 54 (F#3) | Energy burst |
 | 55 (G3) | Mutation burst |
 
-Pads in CC mode use CC 20–27 for the same actions (value > 64 triggers).
+### MIDI Pads (MPK Mini Bank B, channel 10 only)
+
+| Pad Note | Action | Visual (preset-themed) |
+|----------|--------|------------------------|
+| 36 (C2) | Bloom burst | Fast-bloom presets spawn flower accents |
+| 37 (C#2) | Tone burst | Crystal presets add facet shimmer |
+| 38 (D2) | Texture burst | Moss/mutation presets add rough texture |
+| 39 (D#2) | Growth burst | Root/vine presets extend structures |
+| 40 (E2) | Drift burst | Ambient presets widen wave ripples |
+| 41 (F2) | Volume boost | Bass/root presets pulse ground line |
+| 42 (F#2) | Reverb burst | Coral/field presets spawn atmosphere spores |
+| 43 (G2) | Chorus burst | Fern/vine presets add leaf drift |
+
+Pads in CC mode: Bank A CC 20–27, Bank B CC 28–35 (value > 64 triggers).
+
+### MPK Mini — Full Control Map
+
+| Control | MIDI | Maps To |
+|---------|------|---------|
+| **Keys** | Ch 1, Note On/Off | Play notes only — **never changes preset** |
+| **Knobs 1–8** | CC 1–8 | Volume, Tone, Texture, Bloom, Growth, Drift, Mutation, Energy |
+| **Joystick X** | Pitch Bend | Pan drift + visual wind (no preset change) |
+| **Joystick Y** | CC 1 | Shared with Knob 1 on hardware |
+| **Pads** | Ch 10 | Transport / preset / FX (see pad tables) |
+| **Sustain** | CC 64 | Hold while pressed |
+| **Program Change** | Ch 10 only | Load preset by index |
+
+**Regression:** Play keyboard keys on MPK Mini — preset name in overlay must stay fixed. Turn knobs — sliders move, no preset change.
 
 Unknown pad messages log to console: `[Plantasia MIDI] Unknown pad message:`
 
@@ -289,5 +351,7 @@ Expected: exports include `PlantasiaEngine` and related public API symbols.
 | MIDI Learn | Learn → assign → reload | Mapping persists |
 | Chord cluster | Multiple keys | Harmony or tension structure |
 | Sliders | After Start Audio | Visual density changes, no console errors |
+| ASCII animation | After Start Audio | Plants grow/sway at ~60 FPS |
+| Visual controls | Density/Contrast/Reduce Motion | Grid and animation respond |
 | MIDI Connect | Connect + device select | Status Connected, notes play |
 | Production | https://plantasia-engine-test.vercel.app | Fullscreen UI |

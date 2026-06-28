@@ -1,6 +1,7 @@
 import type { ModulationControlValues, SoundControlValues } from '../types/instrument';
 import type { MidiControlTarget, SliderControlTarget } from '../input/MidiDefaults';
 import { isSliderTarget } from '../input/MidiDefaults';
+import { pulseInteractionBurst } from './midiStore';
 
 export type ControlHighlight = {
   target: SliderControlTarget;
@@ -103,9 +104,10 @@ export function updateSoundControl(
   state = {
     ...state,
     sound,
-    highlight: source === 'midi' ? { target: key, tick: ++highlightTick } : state.highlight,
+    highlight: { target: key, tick: ++highlightTick },
     lastMidiTarget: source === 'midi' ? key : state.lastMidiTarget,
   };
+  pulseInteractionBurst(source === 'ui' ? 35 : 25);
   notifyChange(source);
 }
 
@@ -118,9 +120,10 @@ export function updateModulationControl(
   state = {
     ...state,
     modulation,
-    highlight: source === 'midi' ? { target: key, tick: ++highlightTick } : state.highlight,
+    highlight: { target: key, tick: ++highlightTick },
     lastMidiTarget: source === 'midi' ? key : state.lastMidiTarget,
   };
+  pulseInteractionBurst(source === 'ui' ? 35 : 25);
   notifyChange(source);
 }
 
@@ -140,16 +143,32 @@ export function applyMidiTargetValue(target: MidiControlTarget, value: number): 
 }
 
 export function applyTemporaryBoost(
-  key: 'energy' | 'mutation',
+  key: SliderControlTarget | keyof SoundControlValues | keyof ModulationControlValues,
   amount: number,
-  durationMs = 400,
+  durationMs = 450,
 ): () => void {
-  const current = state.modulation[key];
-  const boosted = Math.min(100, current + amount);
-  updateModulationControl(key, boosted, 'midi');
+  const soundKeys: (keyof SoundControlValues)[] = ['volume', 'tone', 'texture', 'bloom'];
+  const isSound = soundKeys.includes(key as keyof SoundControlValues);
+
+  let current: number;
+  if (isSound) {
+    current = state.sound[key as keyof SoundControlValues];
+    updateSoundControl(key as keyof SoundControlValues, Math.min(100, current + amount), 'midi');
+  } else {
+    current = state.modulation[key as keyof ModulationControlValues];
+    updateModulationControl(
+      key as keyof ModulationControlValues,
+      Math.min(100, current + amount),
+      'midi',
+    );
+  }
 
   const timeoutId = window.setTimeout(() => {
-    updateModulationControl(key, current, 'midi');
+    if (isSound) {
+      updateSoundControl(key as keyof SoundControlValues, current, 'midi');
+    } else {
+      updateModulationControl(key as keyof ModulationControlValues, current, 'midi');
+    }
   }, durationMs);
 
   return () => window.clearTimeout(timeoutId);

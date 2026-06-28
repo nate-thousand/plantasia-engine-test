@@ -3,7 +3,14 @@ export type ParsedMidiMessage =
   | { type: 'noteOff'; channel: number; note: number }
   | { type: 'controlChange'; channel: number; controller: number; value: number }
   | { type: 'programChange'; channel: number; program: number }
+  | { type: 'pitchBend'; channel: number; value: number }
+  | { type: 'channelPressure'; channel: number; pressure: number }
   | { type: 'unknown'; status: number; data: number[] };
+
+/** Normalize 14-bit pitch bend to -1..1. */
+export function pitchBendNormalized(value: number): number {
+  return Math.max(-1, Math.min(1, value / 8192));
+}
 
 export function parseMidiMessage(data: Uint8Array | number[]): ParsedMidiMessage | null {
   if (!data || data.length < 1) {
@@ -35,6 +42,15 @@ export function parseMidiMessage(data: Uint8Array | number[]): ParsedMidiMessage
     return { type: 'programChange', channel, program: data[1] };
   }
 
+  if (command === 0xe0 && data.length >= 3) {
+    const value = data[1] | (data[2] << 7);
+    return { type: 'pitchBend', channel, value };
+  }
+
+  if (command === 0xd0 && data.length >= 2) {
+    return { type: 'channelPressure', channel, pressure: data[1] };
+  }
+
   return { type: 'unknown', status, data: Array.from(data) };
 }
 
@@ -48,6 +64,10 @@ export function formatMidiMessage(message: ParsedMidiMessage): string {
       return `CC ${message.controller} = ${message.value}`;
     case 'programChange':
       return `Program ${message.program}`;
+    case 'pitchBend':
+      return `Pitch ${pitchBendNormalized(message.value).toFixed(2)}`;
+    case 'channelPressure':
+      return `Pressure ${message.pressure}`;
     case 'unknown':
       return `MIDI ${message.status.toString(16)}`;
     default:

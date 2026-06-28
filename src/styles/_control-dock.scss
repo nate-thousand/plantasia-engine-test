@@ -1,3 +1,65 @@
+.control-dock-shell {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.control-dock-panel {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    max-height 0.35s ease,
+    opacity 0.25s ease;
+  width: 100%;
+}
+
+.control-dock-shell--open .control-dock-panel {
+  max-height: min(70vh, 32rem);
+  opacity: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  pointer-events: auto;
+  scrollbar-width: thin;
+}
+
+.menu-toggle {
+  align-items: center;
+  background: var(--plantasia-color-surface);
+  border: 1px solid var(--plantasia-color-border);
+  border-radius: var(--plantasia-radius-sm);
+  color: var(--plantasia-color-text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-family: var(--plantasia-font-mono);
+  font-size: 0.625rem;
+  justify-content: center;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  min-height: 2rem;
+  min-width: 5.5rem;
+  padding: 0.5rem 1.25rem;
+  text-transform: lowercase;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.menu-toggle:hover {
+  border-color: var(--plantasia-color-primary);
+  color: var(--plantasia-color-primary);
+}
+
+.control-dock-shell--open .menu-toggle {
+  border-color: var(--plantasia-color-primary);
+  color: var(--plantasia-color-primary);
+}
+
 .control-dock {
   align-items: stretch;
   border-top: 1px solid var(--plantasia-color-border);
@@ -5,9 +67,8 @@
   gap: 0.75rem;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   max-width: 100%;
-  overflow-x: auto;
   padding: 0.75rem 0.25rem 0.25rem;
-  scrollbar-width: thin;
+  width: 100%;
 }
 
 .control-group {
@@ -206,8 +267,14 @@
   opacity: 0.72;
 }
 
+.control-slider--active .control-slider__value,
 .control-slider--midi .control-slider__value {
   color: var(--plantasia-color-accent, var(--plantasia-color-primary));
+  transition: color 0.15s ease;
+}
+
+.control-slider--active input[type='range'] {
+  accent-color: var(--plantasia-color-accent, var(--plantasia-color-primary));
 }
 
 .control-slider--learn .control-slider__label {
@@ -249,8 +316,59 @@
   gap: 0.25rem;
 }
 
-@media (max-width: 960px) {
+.control-subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.control-subsection + .control-subsection {
+  border-top: 1px solid var(--plantasia-color-border);
+  margin-top: 0.125rem;
+  padding-top: 0.5rem;
+}
+
+.control-subsection__label {
+  color: var(--plantasia-color-text-secondary);
+  font-family: var(--plantasia-font-mono);
+  font-size: 0.5rem;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  opacity: 0.85;
+  text-transform: uppercase;
+}
+
+.control-group--preset-midi {
+  min-width: 10.5rem;
+}
+
+@media (max-width: 1200px) {
   .control-dock {
-    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .control-dock {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .control-dock-shell--open .control-dock-panel {
+    max-height: min(65vh, 28rem);
+  }
+
+  .control-group--compact,
+  .control-group--sliders {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .control-dock {
+    grid-template-columns: 1fr;
+  }
+
+  .control-dock-shell--open .control-dock-panel {
+    max-height: min(60vh, 24rem);
   }
 }
