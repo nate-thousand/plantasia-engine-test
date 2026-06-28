@@ -114,7 +114,6 @@ export function useInstrument() {
 
   useEffect(() => {
     initTransport();
-    void ensureInstrumentAudio();
     const detachKeyboard = attachTransportKeyboard();
     const unlockAudio = () => {
       void ensureInstrumentAudio();

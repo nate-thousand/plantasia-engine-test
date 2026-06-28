@@ -1,7 +1,6 @@
 import { bootstrapPresetCatalog } from '../audio/presets';
 import { pulseVisualEnergy } from '../stores/visualEnergyStore';
 import { patchTransportStore } from '../transport/transportStore';
-import { ensureInstrumentAudio } from '../transport/transportActions';
 
 let bootstrapped = false;
 
@@ -21,6 +20,5 @@ export function bootstrapInstrumentDefaults(): void {
       error: null,
     });
     pulseVisualEnergy('control', 0.45);
-    void ensureInstrumentAudio();
   }
 }

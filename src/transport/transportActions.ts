@@ -23,7 +23,6 @@ import {
   getTransportStore,
   isTransportAmbientActive,
   isTransportAudioReady,
-  isTransportLoading,
   isTransportPlaying,
   patchTransportStore,
   setTransportError,
@@ -53,10 +52,6 @@ export async function ensureInstrumentAudio(): Promise<boolean> {
   }
 
   ensureInstrumentPromise = (async () => {
-    if (isTransportLoading()) {
-      return false;
-    }
-
     setTransportError(null);
     setTransportState('loading');
 
@@ -142,10 +137,6 @@ export async function transportStop(_source: TransportActionSource = 'ui'): Prom
 
 /** Spacebar / primary transport toggle — ambient play/stop only. */
 export async function toggleTransportPlayStop(source: TransportActionSource = 'keyboard'): Promise<void> {
-  if (isTransportLoading()) {
-    return;
-  }
-
   if (isTransportPlaying()) {
     await transportStop(source);
   } else {
