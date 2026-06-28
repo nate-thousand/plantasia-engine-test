@@ -65,6 +65,6 @@ export function midiStateIndicator(state: 'off' | 'pending' | 'connected'): stri
     case 'pending':
       return 'MIDI ○';
     default:
-      return 'MIDI —';
+      return 'MIDI ·';
   }
 }

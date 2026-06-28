@@ -1,3 +1,4 @@
+import { bootstrapInstrumentDefaults } from '../instrument/bootstrapDefaults';
 import { registerMidiActionHandlers, initMidiPipeline } from '../input/MidiRouter';
 import {
   transportPlay,
@@ -19,6 +20,8 @@ export function initTransport(): void {
     return;
   }
   initialized = true;
+
+  bootstrapInstrumentDefaults();
 
   initMidiPipeline();
 

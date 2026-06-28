@@ -101,6 +101,7 @@ function performanceTarget(
 
   let target = energy.playModeEnergy;
   target = Math.max(target, energy.visualEnergy * 0.85);
+  target = Math.max(target, clamp01(input.sliderCombined * 0.55 + 0.1));
 
   if (input.ambientActive && target < AMBIENT_PLAY.playModeEnergyFloor + 0.04) {
     target = Math.max(target, AMBIENT_PLAY.choreographyBase);

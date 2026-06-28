@@ -224,6 +224,8 @@ export type VizInputSnapshot = {
   performance: import('./PerformanceAnimation').PerformanceAnimationState;
   /** Transport ambient session active (Milestone 13D). */
   ambientActive: boolean;
+  /** Milestone 15C — interaction amplification (idle vs expressive). */
+  interaction: import('./InteractionResponse').InteractionFrameState;
 };
 
 /** Runtime musical color passed into the ASCII renderer for glyph tinting. */
@@ -234,12 +236,25 @@ export type MusicalColorFrame = {
   bloom: number;
 };
 
+/** Per-glyph draw command for GPU shape layer (Pixi POC). */
+export type ShapeGlyphDrawCommand = {
+  x: number;
+  y: number;
+  char: string;
+  priority: number;
+  alpha?: number;
+  scale?: number;
+  rotation?: number;
+};
+
 export type AsciiFrameOutput = {
   text: string;
   html: string;
   musicalColor: MusicalColorFrame;
   /** Blended preset ambient — drives UI accent crossfade. */
   ambientColorHint: string;
+  /** Shape-layer glyphs for Pixi renderer (13F + title/accent). */
+  shapeGlyphs: ShapeGlyphDrawCommand[];
 };
 
 export type NoteSpawnEvent = {

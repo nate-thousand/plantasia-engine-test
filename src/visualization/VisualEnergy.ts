@@ -1,5 +1,6 @@
 import {
   AMBIENT_PLAY,
+  CONTROLS_ACTIVE_FLOOR,
   displayVisualEnergy,
   resolveVisualRenderMode,
   tickPlayModeEnergy,
@@ -8,11 +9,14 @@ import type { AudioVizFeedback } from '../audio/visualization/AudioTap';
 import type { ActiveNoteState } from '../stores/engineStore';
 import type { VizAccessibility } from './types';
 
+/** Global visualization density multiplier (1 = design default). */
+export const VISUAL_DENSITY_SCALE = 0.8;
+
 /** Sparse idle baseline — shape coverage, not wallpaper density (13F). */
-export const SPARSE_IDLE_DENSITY = 0.08;
+export const SPARSE_IDLE_DENSITY = 0.08 * VISUAL_DENSITY_SCALE;
 
 /** Peak reactive — capped so shapes stay readable (13F). */
-export const PEAK_REACTIVE_DENSITY = 0.38;
+export const PEAK_REACTIVE_DENSITY = 0.38 * VISUAL_DENSITY_SCALE;
 
 /** Below this normalized energy, only sparse idle painters run. */
 export const FULL_SCENE_ENERGY_THRESHOLD = 0.22;
@@ -108,12 +112,14 @@ export function createSourceEnergyMap(): SourceEnergyMap {
 }
 
 export function createUnifiedVisualEnergyState(): UnifiedVisualEnergyState {
+  const sources = createSourceEnergyMap();
+  sources.control = { current: CONTROLS_ACTIVE_FLOOR, impulse: 0 };
   return {
-    visualEnergy: 0,
-    playModeEnergy: 0,
-    renderMode: 'idleHome',
-    displayEnergy: 0.055,
-    sources: createSourceEnergyMap(),
+    visualEnergy: CONTROLS_ACTIVE_FLOOR,
+    playModeEnergy: CONTROLS_ACTIVE_FLOOR,
+    renderMode: 'activePlay',
+    displayEnergy: CONTROLS_ACTIVE_FLOOR,
+    sources,
   };
 }
 
@@ -155,7 +161,10 @@ function sustainTargets(input: VisualEnergyFrameInput): Record<EnergySourceKey, 
   const touchBase = input.isTouch ? input.pointerActivity : input.pointerActive ? input.pointerActivity * 0.6 : 0;
   const pointerBoost = input.pointerVelocity * (input.isTouch ? 0.9 : 0.55);
 
-  const control = clamp01(input.sliderDelta * 2.5);
+  const control = clamp01(
+    input.sliderCombined * 0.55 +
+      (input.sliderDelta > 0.002 ? input.sliderDelta * 5.5 : input.sliderDelta * 2.5),
+  );
   const preset = clamp01(input.presetTransition * 0.85);
   const ui = clamp01(input.interactionBoost / 127);
 

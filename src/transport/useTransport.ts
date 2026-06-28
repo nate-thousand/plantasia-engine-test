@@ -25,14 +25,14 @@ export function useTransport(): TransportViewModel {
   const engine = useSyncExternalStore(subscribeEngineStore, getEngineStore, getEngineStore);
 
   const visualState: InstrumentVisualState = useMemo(() => {
-    if (transport.transportState === 'idle' || transport.transportState === 'loading') {
+    if (transport.transportState === 'loading') {
       return 'dormant';
     }
-    if (transport.transportState === 'playing' || engine.activeNoteCount > 0) {
+    if (transport.ambientActive || engine.activeNoteCount > 0) {
       return 'playing';
     }
     return 'active';
-  }, [transport.transportState, engine.activeNoteCount]);
+  }, [transport.transportState, transport.ambientActive, engine.activeNoteCount]);
 
   return {
     transportState: transport.transportState,
@@ -48,7 +48,7 @@ export function useTransport(): TransportViewModel {
 export function transportStateLabel(state: TransportState, midiConnected: boolean): string {
   switch (state) {
     case 'idle':
-      return 'Home';
+      return 'Ready';
     case 'loading':
       return 'Loading';
     case 'ready':

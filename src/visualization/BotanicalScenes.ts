@@ -1,6 +1,7 @@
 import { paintShapeScene } from './ShapeScenePainters';
 import { paintSliderReactiveOverlays, type SliderVizState } from './SliderVisualEffects';
-import type { PresetTheme, VisualEnergyBehavior, VisualRenderMode } from './types';
+import type { InteractionFrameState } from './InteractionResponse';
+import type { PresetTheme, ShapeGlyphDrawCommand, VisualEnergyBehavior, VisualRenderMode } from './types';
 
 export type ScenePaintFn = (x: number, y: number, char: string, priority: number) => void;
 
@@ -36,6 +37,13 @@ export type SceneContext = {
   /** 0–1 play-mode energy for experiential mode resolution (13F). */
   playModeEnergy?: number;
   paint: ScenePaintFn;
+  /** Collect shape glyphs for Pixi layer. */
+  shapeGlyphs?: ShapeGlyphDrawCommand[];
+  /** When true, shape glyphs skip DOM grid (Pixi renders them). */
+  suppressShapeGridPaint?: boolean;
+  /** Milestone 15C — interaction amplification state. */
+  interaction?: InteractionFrameState;
+  presetTransition?: number;
 };
 
 /** Paint shape-based ASCII scene — one concept per preset, no wallpaper (13F). */

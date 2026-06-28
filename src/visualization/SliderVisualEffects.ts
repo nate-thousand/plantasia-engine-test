@@ -164,16 +164,16 @@ export function paintSliderReactiveOverlays(
 
   const ground = height - 2;
   const cx = Math.floor(width / 2);
-  const pulse = Math.max(interactionPulse / 127, visualEnergy);
-  const pulseActive = pulse > 0.04;
+  const pulse = Math.max(interactionPulse / 127, visualEnergy, visualEnergy * 1.8);
+  const pulseActive = pulse > 0.03;
   const densityScale =
     visualEnergy > 0
       ? densityFromVisualEnergy(visualEnergy)
       : asciiDensityScale(interactionPulse);
   const gain = FEEDBACK_GAIN * densityScale;
 
-  if (sliders.mold > feedbackThreshold(0.08) || pulseActive) {
-    const span = Math.round((sliders.mold + pulse * 0.5) * width * 0.45 * gain);
+  if (sliders.mold > feedbackThreshold(0.06) || pulseActive) {
+    const span = Math.round((sliders.mold + pulse * 0.85) * width * 0.55 * gain);
     const char = sliders.mold > 0.65 ? '▓' : sliders.mold > 0.35 ? '▒' : '░';
     for (let x = cx - span; x <= cx + span; x += 1) {
       if (x >= 0 && x < width) {

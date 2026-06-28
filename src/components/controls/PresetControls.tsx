@@ -5,11 +5,10 @@ import type { UseInstrumentReturn } from '../../hooks/useInstrument';
 type PresetControlsProps = {
   presets: UseInstrumentReturn['presets'];
   midi: UseInstrumentReturn['midi'];
-  audioReady: boolean;
 };
 
 /** Preset details and random — primary selector lives in UnifiedTransport. */
-export function PresetControls({ presets, midi, audioReady }: PresetControlsProps) {
+export function PresetControls({ presets, midi }: PresetControlsProps) {
   const learn = midi.learnEnabled;
   const active = presets.items[presets.index];
 
@@ -36,7 +35,7 @@ export function PresetControls({ presets, midi, audioReady }: PresetControlsProp
       <div className="control-row">
         <ControlButton
           label="⎈ random"
-          disabled={!audioReady}
+          disabled={presets.items.length === 0}
           active={learn && midi.learnTarget === 'presetRandom'}
           onClick={
             learn

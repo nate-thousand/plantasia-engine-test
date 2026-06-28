@@ -10,38 +10,57 @@ import {
   clusterCountForMode,
   DENSITY_BY_MODE,
   generateShapePoints,
+  hashString,
   maxGlyphsForMode,
   resolveShapeKind,
+  shapeAnchorOffset,
   symbolPaletteForTheme,
 } from './ShapeComposition';
 import { buildAnimatedGlyphs, glyphAnimFromBehavior } from './GlyphAnimation';
 
+function paintShapeGlyph(
+  ctx: SceneContext,
+  x: number,
+  y: number,
+  char: string,
+  priority: number,
+  scale?: number,
+  rotation?: number,
+  alpha?: number,
+): void {
+  ctx.shapeGlyphs?.push({ x, y, char, priority, scale, rotation, alpha });
+  if (!ctx.suppressShapeGridPaint) {
+    ctx.paint(x, y, char, priority);
+  }
+}
+
 function paintHomeTitle(ctx: SceneContext): void {
   const title = 'PLANTASONIC';
-  const { width, height, time, paint, animSpeed } = ctx;
+  const { width, height, time, animSpeed } = ctx;
   const startX = Math.max(1, Math.floor((width - title.length) / 2));
   const y = Math.max(2, Math.floor(height * 0.14 + Math.sin(time * 0.12 * animSpeed) * 0.3));
   for (let i = 0; i < title.length; i += 1) {
-    paint(startX + i, y, title[i] ?? '·', 3);
+    paintShapeGlyph(ctx, startX + i, y, title[i] ?? '·', 3);
   }
 }
 
 function paintPointerHalo(ctx: SceneContext): void {
-  const { pointer, paint } = ctx;
+  const { pointer } = ctx;
   if (!pointer.active && pointer.activity < 0.1) return;
   const { gridX: cx, gridY: cy } = pointer;
-  paint(cx, cy, '+', 2);
+  paintShapeGlyph(ctx, cx, cy, '+', 2);
 }
 
 /** Primary 13F scene — shape composition with per-glyph animation. */
 export function paintShapeScene(ctx: SceneContext): void {
   const themeKey = resolveIdleThemeKey(ctx);
+  const presetId = ctx.theme.id ?? themeKey;
   const mode: ExperientialMode = resolveExperientialMode(
     ctx.ambientActive ?? false,
     ctx.playModeEnergy ?? (ctx.renderMode === 'idleHome' ? 0 : ctx.visualEnergy),
   );
   const energy = clampShapeVisualEnergy(ctx.visualEnergy, mode);
-  const seed = themeKey.length * 17 + ctx.width;
+  const seed = Math.abs(hashString(themeKey + presetId + String(ctx.width)));
 
   if (mode === 'home') {
     paintHomeTitle(ctx);
@@ -50,6 +69,7 @@ export function paintShapeScene(ctx: SceneContext): void {
   const shapeKind = resolveShapeKind(themeKey);
   const palette = symbolPaletteForTheme(ctx.theme);
   let clusterTarget = clusterCountForMode(mode, themeKey, seed);
+  const anchorOffsetX = shapeAnchorOffset(themeKey + presetId, ctx.width);
 
   if (mode === 'performance') {
     const boost = Math.min(1, (ctx.playModeEnergy ?? energy) - 0.58);
@@ -65,14 +85,25 @@ export function paintShapeScene(ctx: SceneContext): void {
   }
 
   const maxGlyphs = maxGlyphsForMode(mode, ctx.width, ctx.height);
-  const points = generateShapePoints(shapeKind, ctx.width, ctx.height, clusterTarget, seed);
+  const points = generateShapePoints(
+    shapeKind,
+    ctx.width,
+    ctx.height,
+    clusterTarget,
+    seed,
+    anchorOffsetX,
+  );
 
+  const animSpeed = Math.max(0.35, ctx.theme.animationSpeed ?? 1);
   const perfCluster = ctx.performance?.clusters[0];
   const animCtx = {
-    time: ctx.time,
+    time: ctx.time * animSpeed,
     visualEnergy: energy,
     amplitude: ctx.amplitude,
     pointerActivity: ctx.pointer.activity,
+    pointer: ctx.pointer,
+    presetTransition: ctx.presetTransition ?? 0,
+    interaction: ctx.interaction,
     clusterOffset: perfCluster
       ? {
           translateX: perfCluster.translateX,
@@ -81,13 +112,13 @@ export function paintShapeScene(ctx: SceneContext): void {
           scale: perfCluster.scale,
         }
       : undefined,
-    ...glyphAnimFromBehavior(ctx.energyBehavior, energy),
+    ...glyphAnimFromBehavior(ctx.energyBehavior, energy, ctx.interaction),
   };
 
   const glyphs = buildAnimatedGlyphs(points, palette, animCtx, maxGlyphs, ctx.width, ctx.height);
 
   for (const g of glyphs) {
-    ctx.paint(g.x, g.y, g.char, g.priority);
+    paintShapeGlyph(ctx, g.x, g.y, g.char, g.priority, g.scale, g.rotation, g.alpha);
   }
 
   if (mode !== 'home' && energy > 0.2) {
@@ -106,7 +137,7 @@ function paintAccentMotif(
   mode: ExperientialMode,
 ): void {
   if (mode === 'home' || energy < 0.18) return;
-  const { width, height, time, paint } = ctx;
+  const { width, height, time } = ctx;
   const accentChar = palette[palette.length - 1] ?? '.';
   const count = mode === 'performance' ? 3 : 1;
 
@@ -130,7 +161,7 @@ function paintAccentMotif(
         break;
     }
     if (x > 1 && x < width - 2 && y > 1 && y < height - 2) {
-      paint(x, y, accentChar, 1);
+      paintShapeGlyph(ctx, x, y, accentChar, 1);
     }
   }
 }

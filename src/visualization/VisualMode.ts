@@ -1,4 +1,5 @@
 import type { VisualEnergyFrameInput } from './VisualEnergy';
+import { VISUAL_DENSITY_SCALE } from './VisualEnergy';
 import type { VisualEnergyBehavior } from './types';
 
 /** Home default — almost empty, slow ambient only. */
@@ -8,15 +9,15 @@ export type VisualRenderMode = 'idleHome' | 'activePlay';
 export type ExperientialMode = 'home' | 'ambient' | 'performance';
 
 export const IDLE_HOME = {
-  /** ~90% reduction vs legacy sparse idle (0.32 → 0.032). */
-  density: 0.032,
+  /** ~90% reduction vs legacy sparse idle (0.32 → 0.032), scaled by VISUAL_DENSITY_SCALE. */
+  density: 0.032 * VISUAL_DENSITY_SCALE,
   /** Target combined energy while at rest. */
   visualEnergy: 0.055,
   visualEnergyMin: 0.03,
   visualEnergyMax: 0.08,
-  minClusters: 3,
-  maxClusters: 7,
-  maxScreenCoverage: 0.05,
+  minClusters: Math.max(2, Math.round(3 * VISUAL_DENSITY_SCALE)),
+  maxClusters: Math.max(3, Math.round(7 * VISUAL_DENSITY_SCALE)),
+  maxScreenCoverage: 0.05 * VISUAL_DENSITY_SCALE,
   animSpeed: 0.24,
   amplitude: 0.02,
   sceneEnergy: 0.05,
@@ -29,16 +30,19 @@ export const AMBIENT_PLAY = {
   displayEnergyTarget: 0.34,
   fullSceneThreshold: 0.12,
   animSpeed: 0.58,
-  density: 0.14,
+  density: 0.14 * VISUAL_DENSITY_SCALE,
   choreographyBase: 0.24,
 } as const;
 
 export const ACTIVE_PLAY = {
-  densityMin: 0.12,
-  densityMax: 0.38,
+  densityMin: 0.12 * VISUAL_DENSITY_SCALE,
+  densityMax: 0.38 * VISUAL_DENSITY_SCALE,
 } as const;
 
-/** Cross into activePlay when play energy exceeds this (or ambient session is active). */
+/** Baseline play energy from slider positions — keeps controls reactive without Play. */
+export const CONTROLS_ACTIVE_FLOOR = 0.14;
+
+/** Cross into activePlay when play energy exceeds this (interaction burst). */
 export const PLAY_MODE_ENTER_THRESHOLD = 0.08;
 
 /** Performance mode crosses when play energy exceeds this. */
@@ -51,22 +55,17 @@ export const PLAY_MODE_DECAY_RATE = 0.48;
 export const HOME_DECAY_RATE = 0.42;
 
 export function resolveVisualRenderMode(
-  playModeEnergy: number,
-  ambientActive: boolean,
+  _playModeEnergy: number,
+  _ambientActive: boolean,
 ): VisualRenderMode {
-  if (ambientActive || playModeEnergy >= PLAY_MODE_ENTER_THRESHOLD) {
-    return 'activePlay';
-  }
-  return 'idleHome';
+  /** Controls always use the reactive path — Play only adds ambient soundscape. */
+  return 'activePlay';
 }
 
 export function resolveExperientialMode(
-  ambientActive: boolean,
+  _ambientActive: boolean,
   playModeEnergy: number,
 ): ExperientialMode {
-  if (!ambientActive && playModeEnergy < PLAY_MODE_ENTER_THRESHOLD) {
-    return 'home';
-  }
   if (playModeEnergy >= PERFORMANCE_ENTER_THRESHOLD) {
     return 'performance';
   }
@@ -80,7 +79,11 @@ export function tickPlayModeEnergy(
   deltaMs: number,
 ): number {
   const dt = Math.min(deltaMs / 1000, 0.05);
-  const floor = input.ambientActive ? AMBIENT_PLAY.playModeEnergyFloor : 0;
+  const controlsBaseline = Math.max(
+    CONTROLS_ACTIVE_FLOOR,
+    Math.min(1, input.sliderCombined * 0.55 + 0.08),
+  );
+  const floor = input.ambientActive ? AMBIENT_PLAY.playModeEnergyFloor : controlsBaseline;
   let target = floor;
 
   if (input.ambientActive) {
@@ -96,15 +99,15 @@ export function tickPlayModeEnergy(
   }
 
   if (input.pointerActive || input.pointerActivity > 0.06) {
-    target = Math.max(target, Math.min(1, 0.45 + input.pointerActivity * 0.85));
+    target = Math.max(target, Math.min(1, 0.45 + input.pointerActivity * 1.35));
   }
 
   if (input.isTouch && input.pointerActivity > 0.04) {
-    target = Math.max(target, input.pointerActivity);
+    target = Math.max(target, Math.min(1, input.pointerActivity * 1.25));
   }
 
   if (input.sliderDelta > 0.004) {
-    target = Math.max(target, Math.min(1, 0.5 + input.sliderDelta * 12));
+    target = Math.max(target, Math.min(1, 0.55 + input.sliderDelta * 22));
   }
 
   if (input.presetTransition > 0.05) {

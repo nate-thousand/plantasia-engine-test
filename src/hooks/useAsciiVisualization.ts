@@ -33,9 +33,22 @@ import {
   createPerformanceAnimationState,
   tickPerformanceAnimation,
 } from '../visualization/PerformanceAnimation';
-import { computeViewportLayout } from '../visualization/viewportLayout';
+import { computeViewportLayout, CHAR_ASPECT } from '../visualization/viewportLayout';
 import { interpolateMusicalColor, saturateHex } from '../visuals/colorMusicTheory';
+import {
+  amplifyBehaviorForInteraction,
+  computeInteractionFrame,
+} from '../visualization/InteractionResponse';
+import { patchVizDebugSnapshot } from '../stores/vizDebugStore';
 import type { VizInputSnapshot } from '../visualization/types';
+import {
+  buildLayoutMetrics,
+  createGlyphRenderBackend,
+  isPixiRenderer,
+  resolveRendererMode,
+} from '../canvas/GlyphRenderBackend';
+import type { GlyphRenderBackend } from '../canvas/types';
+import { recordFrameMs } from '../canvas/frameMetrics';
 
 export type AsciiVisualizationProps = {
   presetId?: string;
@@ -80,6 +93,9 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
   const cameraRef = useRef<HTMLDivElement>(null);
   const compositionRef = useRef<HTMLDivElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
+  const pixiCanvasRef = useRef<HTMLCanvasElement>(null);
+  const backendRef = useRef<GlyphRenderBackend | null>(null);
+  const gsapChoreographyRef = useRef<typeof import('../canvas/gsapChoreography') | null>(null);
   const engineRef = useRef<AsciiEngine | null>(null);
   const frameRef = useRef<number | null>(null);
   const performanceRef = useRef(createPerformanceAnimationState());
@@ -93,6 +109,14 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
     presetName: props.presetName ?? 'Seed',
   });
 
+  const [displayMetrics, setDisplayMetrics] = useState<AsciiDisplayMetrics>({
+    fontSizePx: 10,
+    scale: 1,
+    gridWidth: 47,
+    gridHeight: 33,
+  });
+  const displayMetricsRef = useRef(displayMetrics);
+
   useEffect(() => {
     const active = presetStore.activePreset;
     const metadata = presetStore.activeMetadata;
@@ -102,12 +126,9 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
     };
   }, [presetStore.activePreset, presetStore.activeMetadata, props.presetId, props.presetName]);
 
-  const [displayMetrics, setDisplayMetrics] = useState<AsciiDisplayMetrics>({
-    fontSizePx: 10,
-    scale: 1,
-    gridWidth: 47,
-    gridHeight: 33,
-  });
+  useEffect(() => {
+    displayMetricsRef.current = displayMetrics;
+  }, [displayMetrics]);
 
   useEffect(() => {
     initVizAccessibility();
@@ -119,10 +140,50 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
         initialDimensions: { width: 47, height: 33 },
         accessibility,
       });
+      engineRef.current.setSuppressShapeGridPaint(isPixiRenderer());
     } else {
       engineRef.current.setAccessibility(accessibility);
     }
   }, [accessibility]);
+
+  useEffect(() => {
+    let disposed = false;
+
+    const mountBackend = () => {
+      const host = containerRef.current;
+      const pre = preRef.current;
+      if (!host || !pre) {
+        return;
+      }
+
+      const mode = resolveRendererMode();
+      void createGlyphRenderBackend(mode).then((backend) => {
+        if (disposed) {
+          backend.dispose();
+          return;
+        }
+      backendRef.current = backend;
+      if (mode === 'pixi') {
+        void import('../canvas/gsapChoreography').then((mod) => {
+          if (!disposed) {
+            gsapChoreographyRef.current = mod;
+          }
+        });
+      }
+      void backend.mount(host, pre, mode === 'pixi' ? pixiCanvasRef.current : null);
+      });
+    };
+
+    requestAnimationFrame(mountBackend);
+
+    return () => {
+      disposed = true;
+      backendRef.current?.dispose();
+      backendRef.current = null;
+      gsapChoreographyRef.current = null;
+      void import('../canvas/gsapChoreography').then((mod) => mod.disposeAmbientChoreography()).catch(() => undefined);
+    };
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -146,6 +207,16 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
         gridHeight: layout.height,
       });
       displayScaleRef.current = layout.scale;
+      const metrics = buildLayoutMetrics(
+        {
+          fontSizePx: layout.fontSizePx,
+          scale: layout.scale,
+          gridWidth: layout.width,
+          gridHeight: layout.height,
+        },
+        CHAR_ASPECT,
+      );
+      backendRef.current?.resize(metrics);
     };
 
     updateGrid();
@@ -153,12 +224,6 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
     observer.observe(container);
     return () => observer.disconnect();
   }, []);
-
-  useEffect(() => {
-    if (!engineStore.audioReady) {
-      engineRef.current?.softReset();
-    }
-  }, [engineStore.audioReady]);
 
   useEffect(() => {
     let lastPaint = 0;
@@ -190,13 +255,15 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
       const presetState = getPresetStore();
       const activePreset = presetState.activePreset;
       const activeMetadata = presetState.activeMetadata;
-      const { presetId: currentPresetId, presetName: currentPresetName } = presetRef.current;
+      const presetId = activePreset?.id ?? presetRef.current.presetId;
+      const presetName = activeMetadata?.name ?? presetRef.current.presetName;
 
-      if (currentPresetId !== lastPresetIdRef.current) {
+      if (presetId !== lastPresetIdRef.current) {
         if (lastPresetIdRef.current) {
           presetTransitionRef.current = 1;
         }
-        lastPresetIdRef.current = currentPresetId;
+        lastPresetIdRef.current = presetId;
+        presetRef.current = { presetId, presetName };
       }
       presetTransitionRef.current = Math.max(
         0,
@@ -234,7 +301,7 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
 
       const sceneTheme = activePreset
         ? resolvePresetTheme(activePreset, activeMetadata?.category ?? null)
-        : resolvePresetTheme(currentPresetId, currentPresetName);
+        : resolvePresetTheme(presetId, presetName);
 
       const ambientActive = isTransportAmbientActive();
       const frameInput = {
@@ -275,7 +342,11 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
         ambientActive,
         energyState.playModeEnergy,
       );
-      const energyBehavior = amplifyBehaviorForPerformance(baseBehavior, performanceState);
+      const interaction = computeInteractionFrame(energyState.sources, frameInput);
+      const energyBehavior = amplifyBehaviorForInteraction(
+        amplifyBehaviorForPerformance(baseBehavior, performanceState),
+        interaction,
+      );
 
       const presetAmbientHex =
         blendedAmbientRef.current || sceneTheme.colorHint || sceneTheme.colorPalette[0] || '#7FD88F';
@@ -290,7 +361,11 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
         displayHex: musicalState.display.hex,
         ambientHex: musicalState.ambient.hex,
         weight: musicalState.musicalWeight,
-        bloom: musicalState.bloom,
+        bloom:
+          musicalState.bloom +
+          (interaction.isInteracting
+            ? interaction.notePulse * 0.45 + interaction.controlPulse * 0.25
+            : 0),
       };
 
       const snapshot: VizInputSnapshot = {
@@ -298,8 +373,8 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
         activeNotes: engineStore.activeNotes,
         sound: controlStore.sound,
         modulation: controlStore.modulation,
-        presetId: currentPresetId,
-        presetName: currentPresetName,
+        presetId,
+        presetName,
         activePreset,
         asciiState: activeMetadata?.asciiState ?? activePreset?.asciiState ?? 'seed',
         engineSpecies: activeMetadata?.species ?? activePreset?.species ?? '',
@@ -330,11 +405,59 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
         musicalColor,
         performance: performanceState,
         ambientActive,
+        interaction,
       };
 
       const frame = engine.tick(snapshot, deltaMs);
       blendedAmbientRef.current = frame.ambientColorHint;
-      pre.innerHTML = frame.html;
+
+      const fps = deltaMs > 0 ? 1000 / deltaMs : TARGET_VIZ_FPS;
+      patchVizDebugSnapshot({
+        visualEnergy: energyState.displayEnergy,
+        interactionIntensity: interaction.interactionIntensity,
+        interactionBoost: interaction.interactionBoost,
+        activeSource: interaction.activeSource,
+        isInteracting: interaction.isInteracting,
+        glyphCount: engine.getLastShapeGlyphCount(),
+        particleCount: engine.getParticleCount(),
+        fps,
+        profile: interaction.profile,
+      });
+
+      const layoutMetrics = buildLayoutMetrics(displayMetricsRef.current, CHAR_ASPECT);
+      const paintStart = performance.now();
+
+      const backend = backendRef.current;
+      if (backend) {
+        backend.render({
+          html: frame.html,
+          shapeGlyphs: frame.shapeGlyphs,
+          metrics: layoutMetrics,
+          musicalColor: frame.musicalColor,
+          ambientColorHint: frame.ambientColorHint,
+        });
+      } else {
+        pre.innerHTML = frame.html;
+      }
+
+      const domEnd = performance.now();
+      let pixiMs = 0;
+      const pixiContainer = backend.getPixiGlyphContainer?.() ?? null;
+      if (pixiContainer) {
+        gsapChoreographyRef.current?.tickAmbientChoreography(
+          ambientActive,
+          pixiContainer,
+          accessibility.reduceMotion,
+        );
+        pixiMs = performance.now() - domEnd;
+      }
+
+      recordFrameMs(
+        performance.now() - paintStart,
+        domEnd - paintStart,
+        pixiMs,
+        backend?.id ?? 'dom',
+      );
 
       const container = containerRef.current;
       const appShell = document.getElementById('plantasia-app');
@@ -400,6 +523,8 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
     cameraRef,
     compositionRef,
     preRef,
+    pixiCanvasRef,
+    rendererMode: resolveRendererMode(),
     accessibility,
     audioActive: engineStore.audioReady,
     displayMetrics,

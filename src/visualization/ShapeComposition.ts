@@ -2,6 +2,7 @@
  * Milestone 13F — shape-based composition, density limits, symbol palettes.
  */
 import type { ExperientialMode } from './VisualMode';
+import { VISUAL_DENSITY_SCALE } from './VisualEnergy';
 import { getChoreographyForTheme } from './PresetChoreography';
 import type { PresetTheme } from './types';
 
@@ -32,9 +33,24 @@ export type DensityLimits = {
 };
 
 export const DENSITY_BY_MODE: Record<ExperientialMode, DensityLimits> = {
-  home: { minClusters: 3, maxClusters: 7, maxCoverage: 0.05, maxGlyphs: 48 },
-  ambient: { minClusters: 5, maxClusters: 12, maxCoverage: 0.12, maxGlyphs: 120 },
-  performance: { minClusters: 12, maxClusters: 24, maxCoverage: 0.25, maxGlyphs: 280 },
+  home: {
+    minClusters: Math.max(2, Math.round(3 * VISUAL_DENSITY_SCALE)),
+    maxClusters: Math.max(3, Math.round(7 * VISUAL_DENSITY_SCALE)),
+    maxCoverage: 0.05 * VISUAL_DENSITY_SCALE,
+    maxGlyphs: Math.round(48 * VISUAL_DENSITY_SCALE),
+  },
+  ambient: {
+    minClusters: Math.max(3, Math.round(5 * VISUAL_DENSITY_SCALE)),
+    maxClusters: Math.max(4, Math.round(12 * VISUAL_DENSITY_SCALE)),
+    maxCoverage: 0.12 * VISUAL_DENSITY_SCALE,
+    maxGlyphs: Math.round(120 * VISUAL_DENSITY_SCALE),
+  },
+  performance: {
+    minClusters: Math.max(6, Math.round(12 * VISUAL_DENSITY_SCALE)),
+    maxClusters: Math.max(8, Math.round(24 * VISUAL_DENSITY_SCALE)),
+    maxCoverage: 0.25 * VISUAL_DENSITY_SCALE,
+    maxGlyphs: Math.round(280 * VISUAL_DENSITY_SCALE),
+  },
 };
 
 export const SYMBOL_PALETTES: Record<string, readonly string[]> = {
@@ -48,15 +64,15 @@ export const SYMBOL_PALETTES: Record<string, readonly string[]> = {
 
 const SHAPE_BY_THEME: Record<string, ShapeKind> = {
   seed: 'verticalSprout',
-  moss: 'verticalSprout',
+  moss: 'corruptionPatch',
   bloom: 'branch',
   fern: 'branch',
   canopy: 'branch',
-  vine: 'branch',
+  vine: 'waveLine',
   rainforest: 'branch',
   desert: 'verticalSprout',
   juno: 'branch',
-  'night-bloom': 'branch',
+  'night-bloom': 'constellation',
   roots: 'rootWeb',
   root: 'rootWeb',
   mycelium: 'corruptionPatch',
@@ -72,8 +88,22 @@ export function resolveShapeKind(themeKey: string): ShapeKind {
 }
 
 export function symbolPaletteForTheme(theme: PresetTheme): readonly string[] {
+  const fromTheme = [...new Set(
+    [...(theme.accentChars ?? []), ...(theme.characterSet ?? [])]
+      .filter((char) => typeof char === 'string' && char.length === 1),
+  )].slice(0, 8);
+
+  if (fromTheme.length >= 3) {
+    return fromTheme;
+  }
+
   const family = getChoreographyForTheme(theme).family;
   return SYMBOL_PALETTES[family] ?? SYMBOL_PALETTES.plant;
+}
+
+export function shapeAnchorOffset(themeKey: string, width: number): number {
+  const spread = Math.max(6, Math.floor(width * 0.22));
+  return (Math.abs(hashString(themeKey)) % spread) - Math.floor(spread / 2);
 }
 
 export function clusterCountForMode(mode: ExperientialMode, themeKey: string, seed: number): number {
@@ -105,8 +135,9 @@ export function generateShapePoints(
   height: number,
   clusterCount: number,
   seed: number,
+  anchorOffsetX = 0,
 ): ShapeGlyphPoint[] {
-  const cx = Math.floor(width * 0.5);
+  const cx = Math.floor(width * 0.5) + anchorOffsetX;
   const cy = Math.floor(height * 0.42);
   const ground = height - 3;
 
@@ -254,7 +285,7 @@ function pulseLineShape(cx: number, cy: number, clusters: number, _seed: number)
   return out;
 }
 
-function hashString(value: string): number {
+export function hashString(value: string): number {
   let hash = 0;
   for (let i = 0; i < value.length; i += 1) {
     hash = (hash * 31 + value.charCodeAt(i)) | 0;

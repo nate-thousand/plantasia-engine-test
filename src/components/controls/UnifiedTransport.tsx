@@ -3,7 +3,6 @@ import { formatCategoryLabel } from '../../presets/categories';
 import { getPresetStore, subscribePresetStore } from '../../stores/presetStore';
 import type { UseInstrumentReturn } from '../../hooks/useInstrument';
 import {
-  startTransportAudio,
   transportPlay,
   transportPresetNext,
   transportPresetPrevious,
@@ -60,10 +59,6 @@ export function UnifiedTransport({ instrument, menuOpen, onMenuToggle }: Unified
       midi.onSelectLearnTarget('play');
       return;
     }
-    if (transport.transportState === 'idle') {
-      void startTransportAudio().then(() => void transportPlay('ui'));
-      return;
-    }
     if (transport.isPlaying) {
       return;
     }
@@ -82,6 +77,8 @@ export function UnifiedTransport({ instrument, menuOpen, onMenuToggle }: Unified
     presetStore.activeMetadata?.name ??
     presets.items[presetStore.activeIndex]?.name ??
     '—';
+
+  const canSelectPreset = presets.items.length > 0;
 
   const groups =
     presetStore.groups.length > 0
@@ -109,11 +106,9 @@ export function UnifiedTransport({ instrument, menuOpen, onMenuToggle }: Unified
         <TransportIconButton
           label={transport.isInitializing ? '…' : '▶'}
           title={
-            transport.transportState === 'idle'
-              ? 'Start audio and play (Space)'
-              : transport.isPlaying
-                ? 'Playing'
-                : 'Play (Space)'
+            transport.isPlaying
+              ? 'Ambient playing'
+              : 'Start ambient soundscape (Space)'
           }
           disabled={transport.isInitializing}
           active={transport.isPlaying}
@@ -122,8 +117,8 @@ export function UnifiedTransport({ instrument, menuOpen, onMenuToggle }: Unified
         />
         <TransportIconButton
           label="■"
-          title="Stop (Space toggles play/stop)"
-          disabled={!transport.audioReady}
+          title="Stop ambient soundscape (Space)"
+          disabled={!transport.isPlaying}
           active={learn && midi.learnTarget === 'stop'}
           onClick={handleStop}
         />
@@ -133,7 +128,7 @@ export function UnifiedTransport({ instrument, menuOpen, onMenuToggle }: Unified
         <TransportIconButton
           label="◀"
           title="Previous preset"
-          disabled={!transport.audioReady || presets.items.length === 0}
+          disabled={!canSelectPreset}
           active={learn && midi.learnTarget === 'presetPrevious'}
           onClick={
             learn
@@ -144,7 +139,7 @@ export function UnifiedTransport({ instrument, menuOpen, onMenuToggle }: Unified
         <select
           className="unified-transport__select"
           value={presetStore.activeIndex}
-          disabled={!transport.audioReady || presets.items.length === 0}
+          disabled={!canSelectPreset}
           aria-label={`Preset: ${presetName}`}
           onChange={(event) => void transportSelectPreset(Number(event.target.value))}
         >
@@ -171,7 +166,7 @@ export function UnifiedTransport({ instrument, menuOpen, onMenuToggle }: Unified
         <TransportIconButton
           label="▶"
           title="Next preset"
-          disabled={!transport.audioReady || presets.items.length === 0}
+          disabled={!canSelectPreset}
           active={learn && midi.learnTarget === 'presetNext'}
           onClick={
             learn ? () => midi.onSelectLearnTarget('presetNext') : () => transportPresetNext()

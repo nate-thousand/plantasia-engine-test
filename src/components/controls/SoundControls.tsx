@@ -6,7 +6,6 @@ import type { SoundControlValues } from '../../types/instrument';
 type SoundControlsProps = {
   sound: UseInstrumentReturn['sound'];
   midi: UseInstrumentReturn['midi'];
-  audioReady: boolean;
 };
 
 const SLIDER_KEYS: { key: keyof SoundControlValues; label: string; tooltip: string; learn: 'mold' | 'tone' | 'texture' | 'bloom' }[] = [
@@ -22,7 +21,7 @@ const SLIDER_KEYS: { key: keyof SoundControlValues; label: string; tooltip: stri
   { key: 'bloom', label: 'Bloom', tooltip: 'Space, delay, and reverb bloom.', learn: 'bloom' },
 ];
 
-export function SoundControls({ sound, midi, audioReady }: SoundControlsProps) {
+export function SoundControls({ sound, midi }: SoundControlsProps) {
   return (
     <ControlGroup label="Sound" className="control-group--sliders">
       {SLIDER_KEYS.map(({ key, label, tooltip, learn }) => (
@@ -31,7 +30,6 @@ export function SoundControls({ sound, midi, audioReady }: SoundControlsProps) {
           label={label}
           title={tooltip}
           value={sound.values[key]}
-          disabled={!audioReady}
           highlighted={sound.highlight?.target === key}
           learnActive={midi.learnEnabled && midi.learnTarget === learn}
           onSelectLearn={

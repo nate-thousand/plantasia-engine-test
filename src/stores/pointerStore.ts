@@ -61,8 +61,8 @@ export function updatePointerGrid(
 
   const activityBoost = active
     ? isTouch
-      ? 0.35 + speed * 0.85
-      : 0.2 + speed * 0.65
+      ? (0.55 + speed * 1.35) * 1.35
+      : 0.35 + speed * 1.05
     : speed * 0.35;
 
   state = {

@@ -8,6 +8,7 @@ import type {
   BranchSegment,
   MusicalColorFrame,
   PresetTheme,
+  ShapeGlyphDrawCommand,
   VisualEnergyBehavior,
   VisualRenderMode,
   VizParticle,
@@ -98,6 +99,10 @@ export class AsciiRenderer {
     performance?: import('./PerformanceAnimation').PerformanceAnimationState,
     ambientActive?: boolean,
     playModeEnergy?: number,
+    shapeGlyphs?: ShapeGlyphDrawCommand[],
+    suppressShapeGridPaint?: boolean,
+    interaction?: import('./InteractionResponse').InteractionFrameState,
+    presetTransition?: number,
   ): void {
     paintBotanicalScene({
       width: this.width,
@@ -117,6 +122,10 @@ export class AsciiRenderer {
       performance,
       ambientActive,
       playModeEnergy,
+      shapeGlyphs,
+      suppressShapeGridPaint,
+      interaction,
+      presetTransition,
       paint: (x, y, char, priority) => this.setChar(x, y, char, priority),
     });
   }

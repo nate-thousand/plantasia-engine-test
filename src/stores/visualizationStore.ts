@@ -1,9 +1,10 @@
 import type { VizAccessibility } from '../visualization/types';
+import { VISUAL_DENSITY_SCALE } from '../visualization/VisualEnergy';
 
 const STORAGE_KEY = 'plantasia-viz-accessibility';
 
 const DEFAULT_ACCESSIBILITY: VizAccessibility = {
-  density: 42,
+  density: Math.round(42 * VISUAL_DENSITY_SCALE),
   animationSpeed: 62,
   characterScale: 1,
   contrast: 70,

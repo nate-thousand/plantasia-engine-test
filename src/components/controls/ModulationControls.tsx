@@ -6,7 +6,6 @@ import type { ModulationControlValues } from '../../types/instrument';
 type ModulationControlsProps = {
   modulation: UseInstrumentReturn['modulation'];
   midi: UseInstrumentReturn['midi'];
-  audioReady: boolean;
 };
 
 const SLIDER_KEYS: {
@@ -20,7 +19,7 @@ const SLIDER_KEYS: {
   { key: 'energy', label: 'Energy', learn: 'energy' },
 ];
 
-export function ModulationControls({ modulation, midi, audioReady }: ModulationControlsProps) {
+export function ModulationControls({ modulation, midi }: ModulationControlsProps) {
   return (
     <ControlGroup label="Modulation" className="control-group--sliders">
       {SLIDER_KEYS.map(({ key, label, learn }) => (
@@ -28,7 +27,6 @@ export function ModulationControls({ modulation, midi, audioReady }: ModulationC
           key={key}
           label={label}
           value={modulation.values[key]}
-          disabled={!audioReady}
           highlighted={modulation.highlight?.target === key}
           learnActive={midi.learnEnabled && midi.learnTarget === learn}
           onSelectLearn={

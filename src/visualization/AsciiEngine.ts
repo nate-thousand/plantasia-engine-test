@@ -38,9 +38,15 @@ import { ThemeTransition } from './ThemeTransition';
 import { densityFromVisualEnergy } from './VisualEnergy';
 import { IDLE_HOME } from './VisualMode';
 import { FEEDBACK_GAIN, maxParticleCount } from './VisualFeedback';
+import {
+  clampParticleBurst,
+  interactionParticleScale,
+  interactionRippleRadius,
+} from './InteractionResponse';
 import type {
   PlantInstance,
   PresetTheme,
+  ShapeGlyphDrawCommand,
   SoundVizParams,
   VizAccessibility,
   VizInputSnapshot,
@@ -65,7 +71,7 @@ export class AsciiEngine {
   private sound: SoundVizParams;
   private accessibility: VizAccessibility;
   private elapsed = 0;
-  private dormant = true;
+  private audioLive = false;
   private lastPeak = 0;
   private lastMidiEffectTick = 0;
   private lastPresetId = '';
@@ -76,6 +82,10 @@ export class AsciiEngine {
   private lastChannelPressure = 0;
   private titlePulse = 0;
   private simFrame = 0;
+  private suppressShapeGridPaint = false;
+  private lastShapeGlyphs: ShapeGlyphDrawCommand[] = [];
+
+  private lastShapeGlyphCount = 0;
 
   constructor(options: AsciiEngineOptions) {
     this.renderer = new AsciiRenderer(options.initialDimensions);
@@ -105,8 +115,21 @@ export class AsciiEngine {
     this.particles = new ParticleSystem(maxParticleCount(accessibility.density));
   }
 
+  /** When true, shape glyphs skip DOM grid (Pixi GPU layer renders them). */
+  setSuppressShapeGridPaint(suppress: boolean): void {
+    this.suppressShapeGridPaint = suppress;
+  }
+
   get dimensions(): GridDimensions {
     return { width: this.renderer.width, height: this.renderer.height };
+  }
+
+  getParticleCount(): number {
+    return this.particles.list().length;
+  }
+
+  getLastShapeGlyphCount(): number {
+    return this.lastShapeGlyphCount;
   }
 
   tick(snapshot: VizInputSnapshot, deltaMs: number): AsciiFrameOutput {
@@ -115,7 +138,7 @@ export class AsciiEngine {
       : Math.min(deltaMs / 1000, 1 / 24) * (this.accessibility.animationSpeed / 62);
 
     this.elapsed += dt;
-    this.dormant = !snapshot.audioReady;
+    this.audioLive = snapshot.audioReady;
     this.simFrame += 1;
 
     const sliders = buildSliderVizState(snapshot.sound, snapshot.modulation);
@@ -174,7 +197,7 @@ export class AsciiEngine {
   }
 
   private applyPointerFeedback(snapshot: VizInputSnapshot, theme: PresetTheme): void {
-    const { pointer, energy } = snapshot;
+    const { pointer, energy, interaction } = snapshot;
     const visualEnergy = energy.visualEnergy;
     if (pointer.activity < 0.04 && !pointer.active) {
       return;
@@ -183,26 +206,63 @@ export class AsciiEngine {
     const { width, height } = this.renderer;
     const x = Math.max(0, Math.min(width - 1, pointer.gridX));
     const y = Math.max(0, Math.min(height - 1, pointer.gridY));
-    const touchBoost = pointer.isTouch ? 1.35 : 1;
-    const intensity = Math.round(
-      (40 + pointer.activity * 87 + visualEnergy * 40) * touchBoost,
+    const touchBoost = pointer.isTouch ? 1.85 : 1;
+    const pScale = interactionParticleScale(interaction);
+    const intensity = Math.min(
+      127,
+      Math.round((40 + pointer.activity * 110 + visualEnergy * 55) * touchBoost * pScale),
     );
 
-    if (pointer.active || pointer.activity > 0.08) {
-      this.particles.spawnInteractionFlare(x, y, intensity, theme, width, height);
+    if (pointer.active || pointer.activity > 0.06) {
+      const flareLayers = pointer.isTouch ? 4 : 3;
+      for (let layer = 0; layer < flareLayers; layer += 1) {
+        this.particles.spawnInteractionFlare(
+          x + layer - 1,
+          y - layer,
+          intensity,
+          theme,
+          width,
+          height,
+        );
+      }
     }
 
-    if (pointer.activity > 0.15 && this.simFrame % 2 === 0) {
+    const rippleR = interactionRippleRadius(interaction, 2 + Math.round(pointer.activity * 6));
+    if (pointer.activity > 0.08) {
+      for (let r = 1; r <= rippleR; r += 1) {
+        if (this.simFrame % Math.max(1, 3 - Math.floor(pointer.velocity * 2)) === 0) {
+          this.particles.spawnSpores(
+            x + r,
+            y,
+            clampParticleBurst(Math.round(1 + pointer.activity * 4), interaction),
+            theme,
+            intensity,
+          );
+          this.particles.spawnSpores(
+            x - r,
+            y,
+            clampParticleBurst(Math.round(1 + pointer.activity * 3), interaction),
+            theme,
+            intensity,
+          );
+        }
+      }
+    }
+
+    if (pointer.activity > 0.12 && this.simFrame % 2 === 0) {
       this.particles.spawnSpores(
         x,
         y,
-        Math.round(2 + pointer.activity * 8 * FEEDBACK_GAIN * 0.15),
+        clampParticleBurst(
+          Math.round(2 + pointer.activity * 12 * FEEDBACK_GAIN * 0.18 * pScale),
+          interaction,
+        ),
         theme,
         intensity,
       );
     }
 
-    this.titlePulse = Math.max(this.titlePulse, Math.round(pointer.activity * 90));
+    this.titlePulse = Math.max(this.titlePulse, Math.round(pointer.activity * 127 * pScale));
   }
 
   private applyInteractionFeedback(snapshot: VizInputSnapshot, theme: PresetTheme): void {
@@ -210,23 +270,75 @@ export class AsciiEngine {
     const cx = Math.round(width / 2);
     const cy = Math.round(height / 2);
     const activeMidis = new Set(snapshot.activeNotes.map((n) => n.midi));
+    const { interaction } = snapshot;
+    const pScale = interactionParticleScale(interaction);
+    const flareLayers = Math.round(2 + pScale);
+
+    if (snapshot.presetTransition > 0.06) {
+      const burst = clampParticleBurst(
+        Math.round(3 + snapshot.presetTransition * 8 * pScale),
+        interaction,
+      );
+      for (let i = 0; i < burst; i += 1) {
+        this.particles.spawnSpores(
+          Math.round(Math.random() * width),
+          Math.round(Math.random() * height * 0.75),
+          1,
+          theme,
+          Math.round(80 + snapshot.presetTransition * 47),
+        );
+      }
+      this.particles.spawnInteractionFlare(
+        cx,
+        cy,
+        Math.round(90 + snapshot.presetTransition * 37),
+        theme,
+        width,
+        height,
+      );
+      this.titlePulse = Math.max(this.titlePulse, Math.round(snapshot.presetTransition * 127));
+    }
 
     for (const note of snapshot.activeNotes) {
       if (!this.lastActiveMidis.has(note.midi)) {
         const plant = this.plants.get(note.midi);
         const x = plant?.x ?? Math.round((note.midi - 36) / 88 * width);
         const y = plant?.y ?? Math.round(height * 0.6);
-        for (let layer = 0; layer < 2; layer += 1) {
+        const velScale = 0.5 + (note.velocity / 127) * pScale;
+        for (let layer = 0; layer < flareLayers; layer += 1) {
           this.particles.spawnInteractionFlare(
             x + layer * 2 - 1,
             y - layer,
-            note.velocity,
+            Math.min(127, Math.round(note.velocity * velScale)),
             theme,
             width,
             height,
           );
         }
-        this.particles.spawnEchoSeeds(x, y, Math.max(0.2, this.sound.delayWet), theme);
+        const rippleR = interactionRippleRadius(interaction, 3 + Math.round(note.velocity / 40));
+        for (let r = 1; r <= rippleR; r += 2) {
+          this.particles.spawnSpores(
+            x + r,
+            y,
+            clampParticleBurst(Math.round(2 + note.velocity / 25), interaction),
+            theme,
+            note.velocity,
+          );
+          this.particles.spawnSpores(
+            x - r,
+            y,
+            clampParticleBurst(Math.round(2 + note.velocity / 30), interaction),
+            theme,
+            note.velocity,
+          );
+        }
+        this.particles.spawnEchoSeeds(x, y, Math.max(0.35, this.sound.delayWet * pScale), theme);
+        this.particles.spawnDistortionArtifacts(
+          x,
+          y,
+          { ...this.sound, distortion: Math.min(1, this.sound.distortion + note.velocity / 200) },
+          theme,
+        );
         this.titlePulse = 127;
       } else if (this.simFrame % 2 === 0) {
         const plant = this.plants.get(note.midi);
@@ -235,7 +347,7 @@ export class AsciiEngine {
         this.particles.spawnSpores(
           x,
           y,
-          Math.round(3 + note.velocity / 20),
+          clampParticleBurst(Math.round(3 + (note.velocity / 18) * pScale), interaction),
           theme,
           note.velocity,
         );
@@ -383,18 +495,24 @@ export class AsciiEngine {
     const cy = Math.round(height / 2);
 
     for (const change of changes) {
-      const count = sliderChangeBurstCount(change.key, change.value, change.delta);
-      this.particles.spawnInteractionFlare(
-        cx,
-        cy,
-        Math.min(127, Math.round(change.value * 127 + Math.abs(change.delta) * 80)),
-        theme,
-        width,
-        height,
+      const pScale = interactionParticleScale(snapshot.interaction);
+      const count = clampParticleBurst(
+        sliderChangeBurstCount(change.key, change.value, change.delta),
+        snapshot.interaction,
       );
+      for (let layer = 0; layer < Math.round(2 + pScale); layer += 1) {
+        this.particles.spawnInteractionFlare(
+          cx + layer - 1,
+          cy - layer,
+          Math.min(127, Math.round((change.value * 127 + Math.abs(change.delta) * 120) * pScale)),
+          theme,
+          width,
+          height,
+        );
+      }
       this.particles.spawnSpores(cx, cy, count, theme, Math.round(change.value * 127));
-      this.spawnSliderKeyedParticles(change.key, change.value, width, height, theme);
-      this.titlePulse = Math.max(this.titlePulse, 90);
+      this.spawnSliderKeyedParticles(change.key, change.value, width, height, theme, snapshot.interaction);
+      this.titlePulse = Math.max(this.titlePulse, 127);
     }
   }
 
@@ -404,27 +522,29 @@ export class AsciiEngine {
     width: number,
     height: number,
     theme: PresetTheme,
+    interaction: import('./InteractionResponse').InteractionFrameState,
   ): void {
     const intensity = Math.round(value * 127);
     const cx = Math.round(width / 2);
     const cy = Math.round(height / 2);
     const ground = height - 2;
+    const burst = (n: number) => clampParticleBurst(Math.round(n * interactionParticleScale(interaction)), interaction);
 
     switch (key) {
       case 'mold':
-        this.particles.spawnSpores(cx, ground, Math.round(2 + value * 3), theme, intensity);
+        this.particles.spawnSpores(cx, ground, burst(2 + value * 6), theme, intensity);
         break;
       case 'tone':
-        this.particles.spawnSpores(cx, 2, Math.round(2 + value * 2), theme, intensity);
+        this.particles.spawnSpores(cx, 2, burst(2 + value * 5), theme, intensity);
         break;
       case 'texture':
-        this.particles.spawnSpores(Math.round(width * 0.25), cy, Math.round(2 + value * 2), theme, intensity);
+        this.particles.spawnSpores(Math.round(width * 0.25), cy, burst(2 + value * 5), theme, intensity);
         break;
       case 'bloom':
-        this.particles.spawnReverbSpores(width, height, value * 0.45, theme);
+        this.particles.spawnReverbSpores(width, height, value * 0.65 * interaction.interactionIntensity, theme);
         break;
       case 'growthRate':
-        this.particles.spawnEchoSeeds(cx, ground, value * 0.45, theme);
+        this.particles.spawnEchoSeeds(cx, ground, value * 0.65, theme);
         break;
       case 'drift':
         this.particles.spawnWindParticles(width, height, this.sound, theme);
@@ -433,7 +553,7 @@ export class AsciiEngine {
         this.particles.spawnDistortionArtifacts(cx, cy, { ...this.sound, distortion: value }, theme);
         break;
       case 'energy':
-        this.particles.spawnSpores(cx, cy, Math.round(2 + value * 5), theme, intensity);
+        this.particles.spawnSpores(cx, cy, burst(2 + value * 10), theme, intensity);
         break;
       default:
         break;
@@ -461,8 +581,12 @@ export class AsciiEngine {
         plant.brightness = noteAudioIntensity(note.velocity, audio);
         this.plants.set(note.midi, plant);
 
-        const sporeCount = Math.round(
-          (2 + note.velocity / 8) * particleRate * (0.65 + theme.rhythm * 0.85) * (FEEDBACK_GAIN / 4),
+        const sporeCount = clampParticleBurst(
+          Math.round(
+            (2 + note.velocity / 6) * particleRate * (0.65 + theme.rhythm * 0.85) * (FEEDBACK_GAIN / 4) *
+              interactionParticleScale(snapshot.interaction),
+          ),
+          snapshot.interaction,
         );
         this.particles.spawnSpores(plant.x, plant.y, sporeCount, theme, note.velocity);
         if (this.sound.delayWet > 0.06) {
@@ -530,7 +654,7 @@ export class AsciiEngine {
       }
     }
 
-    if (!this.dormant) {
+    if (this.audioLive) {
       const ambientRate = sliderAmbientParticleRate(sliders);
       const { visualEnergy } = snapshot.energy;
       const { rareEventRate, spread } = snapshot.energyBehavior;
@@ -684,6 +808,7 @@ export class AsciiEngine {
     const renderMode = snapshot.renderMode;
     const asciiScale = energyBehavior.density;
     const motionScale = energyBehavior.speed;
+    const shapeGlyphs: ShapeGlyphDrawCommand[] = [];
     const energyLevel =
       renderMode === 'idleHome'
         ? IDLE_HOME.sceneEnergy
@@ -691,8 +816,8 @@ export class AsciiEngine {
     const amplitude =
       renderMode === 'idleHome'
         ? IDLE_HOME.amplitude
-        : this.dormant
-          ? 0.04 + sliders.mold * 0.08 * asciiScale
+        : !this.audioLive
+          ? (sceneBoost.amplitude + snapshot.interactionBoost * 0.35) * asciiScale * energyBehavior.brightness
           : (sceneBoost.amplitude + snapshot.audio.amplitude * 0.45) *
             asciiScale *
             energyBehavior.brightness;
@@ -712,7 +837,12 @@ export class AsciiEngine {
       snapshot.performance,
       snapshot.ambientActive,
       snapshot.energy.playModeEnergy,
+      shapeGlyphs,
+      this.suppressShapeGridPaint,
+      snapshot.interaction,
+      snapshot.presetTransition,
     );
+    this.lastShapeGlyphs = shapeGlyphs;
 
     const perfEnergy = snapshot.performance.performanceEnergy;
     if (renderMode === 'activePlay' && (interactionPulse > 3 || perfEnergy > 0.12)) {
@@ -738,16 +868,6 @@ export class AsciiEngine {
 
     const groundY = this.renderer.height - 2;
 
-    if (this.dormant) {
-      if (renderMode === 'activePlay' && visualEnergy > 0.22) {
-        this.renderer.paintParticles(
-          this.particles.list(),
-          2 + Math.round(visualEnergy * 4 * energyBehavior.spread),
-        );
-      }
-      return this.buildFrameOutput(musicalColor, sceneTheme.colorHint);
-    }
-
     this.renderer.paintBassPulse(sliderBassStrength(sliders, audio.bass), groundY, sceneTheme);
 
     if (!this.accessibility.reduceMotion) {
@@ -760,11 +880,12 @@ export class AsciiEngine {
     }
 
     const spectrumGain = sliderSpectrumGain(sliders, audio.amplitude);
-    if (audio.isActive && spectrumGain > 0.04) {
+
+    if (this.audioLive && audio.isActive && spectrumGain > 0.04) {
       this.renderer.paintSpectrumColumns(audio.spectrum, groundY - 1, spectrumGain, theme);
     }
 
-    if (audio.isActive && spectrumGain > 0.06) {
+    if (this.audioLive && audio.isActive && spectrumGain > 0.06) {
       this.renderer.paintWaveform(
         audio.waveform,
         Math.floor(this.renderer.height * waveformY(theme)),
@@ -778,7 +899,7 @@ export class AsciiEngine {
       const segments = drawPlantSegments(plant, this.sound, audio, theme);
       this.renderer.paintSegments(segments, 6);
 
-      if (audio.isActive && plantCount <= 4 && audio.amplitude > 0.12) {
+      if (this.audioLive && audio.isActive && plantCount <= 4 && audio.amplitude > 0.12) {
         this.renderer.paintAmplitudeHalo(
           Math.round(plant.x),
           Math.round(plant.y),
@@ -861,11 +982,13 @@ export class AsciiEngine {
   }
 
   private buildFrameOutput(musicalColor: MusicalColorFrame, ambientColorHint: string): AsciiFrameOutput {
+    this.lastShapeGlyphCount = this.lastShapeGlyphs.length;
     return {
       text: this.renderer.toString(),
       html: this.renderer.toHtml(),
       musicalColor,
       ambientColorHint,
+      shapeGlyphs: this.lastShapeGlyphs,
     };
   }
 }

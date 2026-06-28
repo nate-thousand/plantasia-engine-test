@@ -14,8 +14,6 @@ type ControlDockProps = {
 
 /** Settings drawer — sound, MIDI, keyboard, viz. Playback lives in UnifiedTransport. */
 export function ControlDock({ instrument, menuOpen }: ControlDockProps) {
-  const audioReady = instrument.transport.audioReady;
-
   return (
     <div
       className={`control-dock-shell${menuOpen ? ' control-dock-shell--open' : ''}`}
@@ -31,19 +29,11 @@ export function ControlDock({ instrument, menuOpen }: ControlDockProps) {
             <StatusFeedback status={instrument.status} />
 
             <div className="control-dock__grid">
-              <PresetControls presets={instrument.presets} midi={instrument.midi} audioReady={audioReady} />
-              <MidiControls midi={instrument.midi} audioReady={audioReady} />
-              <KeyboardControls keyboard={instrument.keyboard} audioReady={audioReady} />
-              <SoundControls
-                sound={instrument.sound}
-                midi={instrument.midi}
-                audioReady={audioReady}
-              />
-              <ModulationControls
-                modulation={instrument.modulation}
-                midi={instrument.midi}
-                audioReady={audioReady}
-              />
+              <PresetControls presets={instrument.presets} midi={instrument.midi} />
+              <MidiControls midi={instrument.midi} />
+              <KeyboardControls keyboard={instrument.keyboard} />
+              <SoundControls sound={instrument.sound} midi={instrument.midi} />
+              <ModulationControls modulation={instrument.modulation} midi={instrument.midi} />
               <VizControls />
             </div>
           </div>

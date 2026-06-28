@@ -179,10 +179,6 @@ function handleNoteOn(
     return;
   }
 
-  if (!engineAdapter.isAudioRunning()) {
-    return;
-  }
-
   try {
     transportNoteOn(note, velocity, 'midi');
     recordMidiMessage(`Note ch${channel + 1} ${note} v${velocity}`);

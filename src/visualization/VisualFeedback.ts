@@ -1,6 +1,7 @@
 import {
   SPARSE_IDLE_DENSITY,
   PEAK_REACTIVE_DENSITY,
+  VISUAL_DENSITY_SCALE,
   densityFromVisualEnergy,
 } from './VisualEnergy';
 
@@ -40,7 +41,7 @@ export function feedbackThreshold(base: number): number {
 }
 
 export function maxParticleCount(density: number): number {
-  return Math.round(420 + density * 4.8);
+  return Math.round((420 + density * 4.8) * VISUAL_DENSITY_SCALE);
 }
 
 /** Scale raw interaction intensity to the 0–127 pulse range. */

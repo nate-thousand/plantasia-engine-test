@@ -5,7 +5,6 @@ import { MIDI_LEARN_TARGET_LABELS } from '../../input/MidiDefaults';
 
 type MidiControlsProps = {
   midi: UseInstrumentReturn['midi'];
-  audioReady: boolean;
 };
 
 function midiStatusLabel(midi: MidiControlsProps['midi']): string {
@@ -19,11 +18,11 @@ function midiStatusLabel(midi: MidiControlsProps['midi']): string {
     case 'pending':
       return 'Connecting…';
     default:
-      return 'Off';
+      return midi.supported ? 'Ready' : 'Unsupported';
   }
 }
 
-export function MidiControls({ midi, audioReady }: MidiControlsProps) {
+export function MidiControls({ midi }: MidiControlsProps) {
   const hasDevices = midi.devices.length > 0;
 
   return (
@@ -37,12 +36,11 @@ export function MidiControls({ midi, audioReady }: MidiControlsProps) {
         <div className="control-row">
           <ControlButton
             label="Connect"
-            disabled={!audioReady || !midi.supported}
+            disabled={!midi.supported}
             onClick={midi.onConnect}
           />
           <ControlButton
             label={midi.learnEnabled ? 'Learn ✓' : 'Learn'}
-            disabled={!audioReady}
             active={midi.learnEnabled}
             onClick={midi.onToggleLearn}
           />
@@ -51,7 +49,7 @@ export function MidiControls({ midi, audioReady }: MidiControlsProps) {
 
       <select
         className={`control-select control-select--wide${hasDevices ? '' : ' control-select--placeholder'}`}
-        disabled={!audioReady || !hasDevices}
+        disabled={!hasDevices}
         aria-label="MIDI input device"
         value={midi.selectedDeviceId ?? ''}
         onChange={(event) => midi.onSelectDevice(event.target.value)}

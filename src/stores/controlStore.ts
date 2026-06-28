@@ -3,6 +3,7 @@ import type { MidiControlTarget, SliderControlTarget } from '../input/MidiDefaul
 import { isSliderTarget } from '../input/MidiDefaults';
 import { pulseScreenFeedback } from './midiStore';
 import { pulseVisualEnergy } from './visualEnergyStore';
+import { scaleEventAmount } from '../visualization/InteractionResponse';
 import { clampMold } from '../audio/moldSync';
 
 export type ControlHighlight = {
@@ -111,7 +112,7 @@ export function updateSoundControl(
     lastMidiTarget: source === 'midi' ? key : state.lastMidiTarget,
   };
   pulseScreenFeedback(source === 'ui' ? 95 : 80, 'knobTwist', key);
-  pulseVisualEnergy('control', source === 'ui' ? 95 : 80);
+  pulseVisualEnergy('control', scaleEventAmount(source === 'ui' ? 127 : 110));
   notifyChange(source);
 }
 
@@ -128,7 +129,7 @@ export function updateModulationControl(
     lastMidiTarget: source === 'midi' ? key : state.lastMidiTarget,
   };
   pulseScreenFeedback(source === 'ui' ? 95 : 80, 'knobTwist', key);
-  pulseVisualEnergy('control', source === 'ui' ? 95 : 80);
+  pulseVisualEnergy('control', scaleEventAmount(source === 'ui' ? 127 : 110));
   notifyChange(source);
 }
 

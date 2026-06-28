@@ -1,4 +1,5 @@
 import { pulseVisualEnergy } from './visualEnergyStore';
+import { scaleEventAmount } from '../visualization/InteractionResponse';
 import type { MidiSurfaceState } from '../types/instrument';
 import { formatNoteLabel } from '../input/noteMap';
 
@@ -83,7 +84,7 @@ export function registerNoteOn(
   const existing = state.activeNotes.filter((note) => note.midi !== midi);
   const activeNotes = [...existing, { midi, velocity, label, source }];
 
-  pulseVisualEnergy(source, velocity);
+  pulseVisualEnergy(source, scaleEventAmount(velocity));
 
   patchEngineStore({
     activeNotes,

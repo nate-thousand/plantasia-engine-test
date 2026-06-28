@@ -28,16 +28,16 @@ import {
 } from '../stores/presetStore';
 import { randomPresetIndex } from '../audio/presets';
 import {
+  ensureInstrumentAudio,
   transportNoteOff,
   transportNoteOn,
-  transportReconcileChordIdle,
   transportSelectPreset,
   transportSetHold,
   transportToggleHold,
 } from '../transport/transportActions';
 import { attachTransportKeyboard, initTransport } from '../transport/initTransport';
 import { getTransportStore, subscribeTransportStore, setTransportError } from '../transport/transportStore';
-import { useTransport } from '../transport/useTransport';
+import { useTransport, transportStateLabel } from '../transport/useTransport';
 import type {
   ModulationControlValues,
   PresetSummary,
@@ -90,7 +90,7 @@ export function useInstrument() {
   const visualState = transport.visualState;
 
   const organismStateLabel = useMemo(() => {
-    if (transport.transportState === 'idle' || transport.transportState === 'loading') {
+    if (transport.transportState === 'loading') {
       return 'dormant';
     }
     if (engineStore.activeNoteCount > 0 || transport.isPlaying) {
@@ -99,9 +99,8 @@ export function useInstrument() {
     return 'active';
   }, [transport.transportState, transport.isPlaying, engineStore.activeNoteCount]);
 
-  const currentPresetName = transport.audioReady
-    ? (activeMetadata?.name ?? presets[presetIndex]?.name ?? '—')
-    : '—';
+  const currentPresetName =
+    activeMetadata?.name ?? presets[presetIndex]?.name ?? '—';
   const currentPresetCategory = activeMetadata?.category
     ? formatCategoryLabel(activeMetadata.category)
     : null;
@@ -115,20 +114,27 @@ export function useInstrument() {
 
   useEffect(() => {
     initTransport();
+    void ensureInstrumentAudio();
     const detachKeyboard = attachTransportKeyboard();
-    return detachKeyboard;
+    const unlockAudio = () => {
+      void ensureInstrumentAudio();
+    };
+    window.addEventListener('pointerdown', unlockAudio, { capture: true });
+    return () => {
+      detachKeyboard();
+      window.removeEventListener('pointerdown', unlockAudio, { capture: true });
+    };
   }, []);
 
   useEffect(() => {
-    transportReconcileChordIdle();
-  }, [engineStore.activeNoteCount, transportStore.chordActive]);
-
-  useEffect(() => {
     return subscribeControlChanges((nextSound, nextModulation, source) => {
-      if (engineAdapter.isAudioRunning()) {
-        if (source === 'midi') {
-          engineAdapter.applyControlSurface(nextSound, nextModulation);
-        }
+      if (!engineAdapter.isAudioRunning()) {
+        return;
+      }
+      if (source === 'midi' || source === 'ui') {
+        engineAdapter.applyControlSurface(nextSound, nextModulation);
+      }
+      if (getTransportStore().ambientActive) {
         engineAdapter.applyAmbientControls(nextSound, nextModulation);
       }
     });
@@ -147,6 +153,10 @@ export function useInstrument() {
     const midi = new MidiInputManager();
     midiRef.current = midi;
 
+    if (MidiInputManager.isSupported()) {
+      void midi.connect().catch(() => undefined);
+    }
+
     return () => {
       keyboard.detach();
       midi.disconnect();
@@ -156,17 +166,22 @@ export function useInstrument() {
   }, []);
 
   useEffect(() => {
-    keyboardRef.current?.setEnabled(transport.audioReady && engineStore.keyboardEnabled);
-  }, [transport.audioReady, engineStore.keyboardEnabled]);
+    keyboardRef.current?.setEnabled(engineStore.keyboardEnabled);
+  }, [engineStore.keyboardEnabled]);
 
   const updateSound = useCallback(
     (key: keyof SoundControlValues, value: number) => {
       updateSoundControl(key, value, 'ui');
-      if (engineAdapter.isAudioRunning()) {
+      void ensureInstrumentAudio().then((ready) => {
+        if (!ready) {
+          return;
+        }
         const store = getControlStore();
         engineAdapter.applyControlSurface(store.sound, store.modulation);
-        engineAdapter.applyAmbientControls(store.sound, store.modulation);
-      }
+        if (getTransportStore().ambientActive) {
+          engineAdapter.applyAmbientControls(store.sound, store.modulation);
+        }
+      });
     },
     [],
   );
@@ -174,11 +189,16 @@ export function useInstrument() {
   const updateModulation = useCallback(
     (key: keyof ModulationControlValues, value: number) => {
       updateModulationControl(key, value, 'ui');
-      if (engineAdapter.isAudioRunning()) {
+      void ensureInstrumentAudio().then((ready) => {
+        if (!ready) {
+          return;
+        }
         const store = getControlStore();
         engineAdapter.applyControlSurface(store.sound, store.modulation);
-        engineAdapter.applyAmbientControls(store.sound, store.modulation);
-      }
+        if (getTransportStore().ambientActive) {
+          engineAdapter.applyAmbientControls(store.sound, store.modulation);
+        }
+      });
     },
     [],
   );
@@ -217,6 +237,8 @@ export function useInstrument() {
         ? 'Learn: pick control'
         : null;
 
+  const midiConnected = engineStore.midiState === 'connected';
+
   return {
     activePreset,
     status: {
@@ -236,7 +258,7 @@ export function useInstrument() {
         midiStore.lastCcNumber !== null
           ? `CC ${midiStore.lastCcNumber}=${midiStore.lastCcValue ?? '—'}`
           : null,
-      transportState: transport.transportState,
+      transportState: transportStateLabel(transport.transportState, midiConnected),
     },
     transport,
     presets: {
@@ -263,7 +285,7 @@ export function useInstrument() {
       highlight: controlStore.highlight,
     },
     keyboard: {
-      enabled: engineStore.keyboardEnabled && transport.audioReady,
+      enabled: engineStore.keyboardEnabled,
       octaveOffset: keyboardOctave,
       holdEnabled: transportStore.holdEnabled,
       onToggleHold: transportToggleHold,

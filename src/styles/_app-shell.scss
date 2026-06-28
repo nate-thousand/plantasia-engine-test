@@ -60,9 +60,65 @@ body,
 
 .ascii-canvas-view__scale-wrap {
   flex: none;
+  position: relative;
   transform-origin: center center;
   transition: transform 60ms linear;
   will-change: transform;
+}
+
+.ascii-canvas-view__pixi {
+  display: block;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  z-index: 2;
+}
+
+.ascii-canvas-view__frame--underlay {
+  position: relative;
+  z-index: 1;
+}
+
+.ascii-canvas-view[data-renderer='pixi'] .ascii-canvas-view__frame--underlay {
+  color: rgba(var(--musical-color-r, 127), var(--musical-color-g, 216), var(--musical-color-b, 143), 0.72);
+}
+
+.ascii-canvas-view__pixi--hidden {
+  display: none;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.frame-metrics-debug {
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(127, 216, 143, 0.35);
+  border-radius: 4px;
+  color: #c8f0d0;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--plantasia-font-mono);
+  font-size: 11px;
+  gap: 4px;
+  left: 8px;
+  line-height: 1.35;
+  padding: 8px 10px;
+  pointer-events: auto;
+  position: absolute;
+  top: 8px;
+  z-index: 20;
+}
+
+.frame-metrics-debug__reset {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px solid rgba(127, 216, 143, 0.45);
+  color: inherit;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10px;
+  margin-top: 4px;
+  padding: 2px 6px;
 }
 
 .ascii-canvas-view--live .ascii-canvas-view__camera,

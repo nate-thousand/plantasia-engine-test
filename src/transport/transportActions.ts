@@ -13,19 +13,22 @@ import {
   registerNoteOn,
 } from '../stores/engineStore';
 import { getControlStore } from '../stores/controlStore';
-import { getPresetStore, resetPresetStore } from '../stores/presetStore';
+import { getPresetStore, setActivePresetIndex } from '../stores/presetStore';
 import { pulseScreenFeedback } from '../stores/midiStore';
 import { pulseVisualEnergy } from '../stores/visualEnergyStore';
+import { scaleEventAmount } from '../visualization/InteractionResponse';
 import type { TransportActionSource } from './types';
 import {
   getHoldEnabled,
   getTransportStore,
+  isTransportAmbientActive,
   isTransportAudioReady,
   isTransportLoading,
   isTransportPlaying,
   patchTransportStore,
   setTransportError,
   setTransportState,
+  syncEngineFromAdapter,
   syncTransportPlayingState,
 } from './transportStore';
 
@@ -37,33 +40,57 @@ function emitTransportFeedback(
   pulseScreenFeedback(velocity, kind, detail);
 }
 
-export async function startTransportAudio(): Promise<void> {
-  if (isTransportAudioReady() || isTransportLoading()) {
-    return;
+let ensureInstrumentPromise: Promise<boolean> | null = null;
+
+/** Start Tone.js and load the active preset — does not start ambient playback. */
+export async function ensureInstrumentAudio(): Promise<boolean> {
+  if (isTransportAudioReady()) {
+    return true;
   }
 
-  setTransportError(null);
-  setTransportState('loading');
-
-  try {
-    await startAudioEngine();
-    const { defaultIndex } = bootstrapPresetCatalog();
-    const store = getControlStore();
-    engineAdapter.applyControlSurface(store.sound, store.modulation);
-    await loadPresetAtIndex(defaultIndex, { silent: true });
-    patchTransportStore({ transportState: 'ready', chordActive: false, ambientActive: false });
-  } catch (caught) {
-    const message = caught instanceof Error ? caught.message : 'Audio could not start.';
-    console.error('[Plantasia Transport] Audio start failed:', caught);
-    setTransportError(message);
-    setTransportState('idle');
-    resetPresetStore();
+  if (ensureInstrumentPromise) {
+    return ensureInstrumentPromise;
   }
+
+  ensureInstrumentPromise = (async () => {
+    if (isTransportLoading()) {
+      return false;
+    }
+
+    setTransportError(null);
+    setTransportState('loading');
+
+    try {
+      await startAudioEngine();
+      const { defaultIndex } = bootstrapPresetCatalog();
+      const presetIndex = getPresetStore().ready ? getPresetStore().activeIndex : defaultIndex;
+      const store = getControlStore();
+      engineAdapter.applyControlSurface(store.sound, store.modulation);
+      await loadPresetAtIndex(presetIndex, { silent: true });
+      patchTransportStore({ transportState: 'ready', chordActive: false, ambientActive: false });
+      syncEngineFromAdapter();
+      return true;
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Audio could not start.';
+      console.error('[Plantasia Transport] Audio start failed:', caught);
+      setTransportError(message);
+      setTransportState(getPresetStore().ready ? 'ready' : 'idle');
+      return false;
+    }
+  })().finally(() => {
+    ensureInstrumentPromise = null;
+  });
+
+  return ensureInstrumentPromise;
 }
 
-/** Play — awaken ambient audiovisual session (Milestone 13D). */
+/** @deprecated Use ensureInstrumentAudio — kept for callers that only need init. */
+export const startTransportAudio = ensureInstrumentAudio;
+
+/** Play — start ambient soundscape only (instrument must be initialized). */
 export async function transportPlay(_source: TransportActionSource = 'ui'): Promise<void> {
-  if (!isTransportAudioReady()) {
+  const ready = await ensureInstrumentAudio();
+  if (!ready) {
     return;
   }
 
@@ -76,7 +103,7 @@ export async function transportPlay(_source: TransportActionSource = 'ui'): Prom
     patchTransportStore({ ambientActive: true, chordActive: false });
     await engineAdapter.startAmbientPlayback(preset);
     syncTransportPlayingState();
-    pulseVisualEnergy('ui', 100);
+    pulseVisualEnergy('ui', scaleEventAmount(110));
     emitTransportFeedback('play', 110);
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : 'Ambient playback could not start.';
@@ -85,20 +112,27 @@ export async function transportPlay(_source: TransportActionSource = 'ui'): Prom
   }
 }
 
-/** Stop — fade ambient audio and return to Home visuals. */
+/** Stop — fade ambient soundscape; instrument stays available for notes and controls. */
 export async function transportStop(_source: TransportActionSource = 'ui'): Promise<void> {
-  if (!isTransportAudioReady()) {
+  if (!isTransportAmbientActive()) {
     return;
   }
 
   try {
     patchTransportStore({ ambientActive: false, chordActive: false });
     syncTransportPlayingState();
-    stopEngineNote();
-    clearActiveNotes();
-    await engineAdapter.stopAmbientPlayback(true);
-    setTransportState('ready');
-    pulseVisualEnergy('ui', 40);
+
+    if (isTransportAudioReady()) {
+      stopEngineNote();
+      clearActiveNotes();
+      await engineAdapter.stopAmbientPlayback(true);
+    }
+
+    if (getTransportStore().transportState === 'playing') {
+      setTransportState('ready');
+    }
+
+    pulseVisualEnergy('ui', scaleEventAmount(40));
     emitTransportFeedback('stop', 90);
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : 'Playback could not stop.';
@@ -106,19 +140,9 @@ export async function transportStop(_source: TransportActionSource = 'ui'): Prom
   }
 }
 
-/** Spacebar / primary transport toggle — start audio, play, or stop. */
+/** Spacebar / primary transport toggle — ambient play/stop only. */
 export async function toggleTransportPlayStop(source: TransportActionSource = 'keyboard'): Promise<void> {
-  const { transportState } = getTransportStore();
-
-  if (transportState === 'idle') {
-    await startTransportAudio();
-    if (isTransportAudioReady()) {
-      await transportPlay(source);
-    }
-    return;
-  }
-
-  if (transportState === 'loading') {
+  if (isTransportLoading()) {
     return;
   }
 
@@ -144,17 +168,24 @@ export function transportNoteOn(
   velocity: number,
   source: 'keyboard' | 'midi' = 'keyboard',
 ): void {
-  if (!engineAdapter.isAudioRunning()) {
-    return;
-  }
+  void ensureInstrumentAudio().then((ready) => {
+    if (!ready) {
+      return;
+    }
+
+    try {
+      engineAdapter.noteOn(midi, velocity);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Note could not play.';
+      setTransportError(message);
+    }
+  });
 
   try {
-    engineAdapter.noteOn(midi, velocity);
     registerNoteOn(midi, velocity, source);
-    syncTransportPlayingState();
     emitTransportFeedback('padHit', velocity);
   } catch (caught) {
-    const message = caught instanceof Error ? caught.message : 'Note could not play.';
+    const message = caught instanceof Error ? caught.message : 'Note could not register.';
     setTransportError(message);
   }
 }
@@ -164,9 +195,13 @@ export function transportNoteOff(midi: number): void {
     return;
   }
 
-  engineAdapter.noteOff(midi);
   registerNoteOff(midi);
-  syncTransportPlayingState();
+
+  if (!isTransportAudioReady()) {
+    return;
+  }
+
+  engineAdapter.noteOff(midi);
   emitTransportFeedback('padHit', 55);
 }
 
@@ -174,8 +209,8 @@ export async function transportSelectPreset(
   index: number,
   preserveControls = false,
 ): Promise<void> {
-  if (!isTransportAudioReady()) {
-    return;
+  if (!getPresetStore().ready) {
+    bootstrapPresetCatalog();
   }
 
   const catalog = buildPresetCatalog();
@@ -184,6 +219,16 @@ export async function transportSelectPreset(
   }
 
   const wrapped = ((index % catalog.length) + catalog.length) % catalog.length;
+  setActivePresetIndex(wrapped);
+
+  const ready = await ensureInstrumentAudio();
+  if (!ready) {
+    setTransportError(null);
+    pulseVisualEnergy('preset', scaleEventAmount(127));
+    emitTransportFeedback('presetChange', 127);
+    return;
+  }
+
   const wasAmbient = getTransportStore().ambientActive;
 
   try {
@@ -192,7 +237,7 @@ export async function transportSelectPreset(
     patchTransportStore({ chordActive: false });
     syncTransportPlayingState();
     emitTransportFeedback('presetChange', 127);
-    pulseVisualEnergy('preset', 90);
+    pulseVisualEnergy('preset', scaleEventAmount(127));
 
     if (wasAmbient) {
       const preset = getPresetStore().activePreset;
@@ -228,7 +273,7 @@ export function transportProgramChange(program: number): void {
   }
 }
 
-/** Legacy reconcile — no-op while ambient session drives playing state. */
+/** Legacy reconcile — sync ambient transport state. */
 export function transportReconcileChordIdle(): void {
   syncTransportPlayingState();
 }
