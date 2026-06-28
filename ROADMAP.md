@@ -198,16 +198,46 @@ Fullscreen Plantasia instrument with a modular bottom control dock — not a dev
 
 Placeholder mappings (volume, tone, texture, growth, drift, hold, MIDI) are marked in hook comments for future engine wiring.
 
-### Definition of Done
+---
 
-- [x] App renders fullscreen with bottom control dock
-- [x] Organism remains central visual focus
-- [x] No dashboard UI returns
-- [x] No changes to `plantasia-sound-engine`
+## Milestone 7 — Sound Engine Control Integration
+
+**Status:** Complete
+
+### Goals
+
+Wire transport and preset controls to the engine. Volume drives output gain. Other sliders update the organism visually first; sound mapping follows in a later pass.
+
+### Tasks
+
+- [x] Start Audio initializes engine and unlocks audio context
+- [x] Play Note triggers `triggerChord()` through engine wrapper
+- [x] Stop Note releases voices via engine wrapper
+- [x] Preset selector loads bundled engine presets (`playPreset`)
+- [x] Volume slider maps to output gain via `applyBotanicalControls`
+- [x] Tone, Texture, Bloom, Growth, Drift, Mutation, Energy update organism visuals
+- [ ] Tone / Texture / Bloom / Growth / Drift / Mutation / Energy → engine parameters (deferred)
+
+### Architecture
+
+| Control | Audio | Visual |
+|---------|-------|--------|
+| Start Audio | `startAudioEngine()` | dormant → active |
+| Play Note | `playEngineNote()` | playing |
+| Stop Note | `stopEngineNote()` | resting |
+| Preset | `loadPresetAtIndex()` | preset name overlay |
+| Volume | `setOutputVolume()` | — |
+| Tone | deferred | harmonic halo |
+| Texture | deferred | density band |
+| Bloom | deferred | flower cross |
+| Growth | deferred | upward reach |
+| Drift | deferred | asymmetric particles |
+| Mutation | deferred | ╳ disruption |
+| Energy | deferred | particle row |
 
 ---
 
-## Milestone 7 — MIDI and Sequencing
+## Milestone 8 — MIDI and Sequencing
 
 **Status:** Planned
 
@@ -215,7 +245,7 @@ Placeholder mappings (volume, tone, texture, growth, drift, hold, MIDI) are mark
 - [ ] Transport and pattern playback (`src/audio/sequencing/`)
 - [ ] Hook engine sequencer exports when available
 
-## Milestone 8 — Visualization Hooks
+## Milestone 9 — Visualization Hooks
 
 **Status:** Planned
 
@@ -223,7 +253,7 @@ Placeholder mappings (volume, tone, texture, growth, drift, hold, MIDI) are mark
 - [ ] Engine-driven organism updates (`Node.applyEngineUpdate`)
 - [ ] Canvas render loop scaffold (`src/canvas/`)
 
-## Milestone 9 — Application Shell Expansion
+## Milestone 10 — Application Shell Expansion
 
 **Status:** Planned
 
@@ -231,7 +261,7 @@ Placeholder mappings (volume, tone, texture, growth, drift, hold, MIDI) are mark
 - [ ] Core React components (`src/components/`)
 - [ ] Bootstrap component integration with design tokens
 
-## Milestone 10 — Full Plantasia Foundation
+## Milestone 11 — Full Plantasia Foundation
 
 **Status:** Planned
 

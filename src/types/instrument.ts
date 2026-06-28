@@ -29,6 +29,14 @@ export type OrganismVisualParams = {
   mutation: number;
   /** Sound bloom slider — drives bloom glyph scale when > 0. */
   bloom: number;
+  /** Sound tone slider — visual highlight intensity (audio deferred). */
+  tone: number;
+  /** Sound texture slider — visual density band (audio deferred). */
+  texture: number;
+  /** Modulation growth slider — visual reach extension (audio deferred). */
+  growthRate: number;
+  /** Modulation drift slider — visual asymmetry (audio deferred). */
+  drift: number;
 };
 
 export type PresetSummary = {

@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
+import { setOutputVolume, startAudioEngine, playEngineNote, stopEngineNote } from '../audio/engine';
 import {
   getPresetCatalog,
   loadPresetAtIndex,
   randomPresetIndex,
 } from '../audio/presets';
-import { playEngineNote, startAudioEngine, stopEngineNote } from '../audio/engine';
 import type {
   MidiSurfaceState,
   ModulationControlValues,
@@ -53,8 +53,21 @@ export function useInstrument() {
       energy: modulation.energy,
       mutation: modulation.mutation,
       bloom: sound.bloom,
+      tone: sound.tone,
+      texture: sound.texture,
+      growthRate: modulation.growthRate,
+      drift: modulation.drift,
     }),
-    [visualState, modulation.energy, modulation.mutation, sound.bloom],
+    [
+      visualState,
+      modulation.energy,
+      modulation.mutation,
+      modulation.growthRate,
+      modulation.drift,
+      sound.bloom,
+      sound.tone,
+      sound.texture,
+    ],
   );
 
   const organism = useMemo(() => createOrganismForParams(organismParams), [organismParams]);
@@ -67,7 +80,7 @@ export function useInstrument() {
     setIsInitializing(true);
 
     try {
-      await startAudioEngine();
+      await startAudioEngine({ volume: sound.volume });
       const catalog = getPresetCatalog().map((preset) => ({
         id: preset.id,
         name: preset.name,
@@ -85,7 +98,7 @@ export function useInstrument() {
     } finally {
       setIsInitializing(false);
     }
-  }, []);
+  }, [sound.volume]);
 
   const selectPreset = useCallback(
     (index: number) => {
@@ -134,14 +147,22 @@ export function useInstrument() {
     }
   }, [audioReady]);
 
-  const updateSound = useCallback((key: keyof SoundControlValues, value: number) => {
-    setSound((current) => ({ ...current, [key]: value }));
-    // Volume, tone, texture: placeholder — future engine parameter mapping.
-  }, []);
+  const updateSound = useCallback(
+    (key: keyof SoundControlValues, value: number) => {
+      setSound((current) => ({ ...current, [key]: value }));
+
+      if (key === 'volume' && audioReady) {
+        setOutputVolume(value);
+      }
+
+      // Tone, texture, bloom: organism visual mapping only — audio deferred.
+    },
+    [audioReady],
+  );
 
   const updateModulation = useCallback((key: keyof ModulationControlValues, value: number) => {
     setModulation((current) => ({ ...current, [key]: value }));
-    // Growth rate, drift: placeholder — future animation / engine mapping.
+    // Growth, drift, mutation, energy: organism visual mapping only — audio deferred.
   }, []);
 
   const toggleHold = useCallback(() => {

@@ -15,12 +15,12 @@ export function TransportControls({ transport }: TransportControlsProps) {
         onClick={transport.onStartAudio}
       />
       <ControlButton
-        label="Play"
+        label="Play Note"
         disabled={!transport.audioReady}
         onClick={transport.onPlay}
       />
       <ControlButton
-        label="Stop"
+        label="Stop Note"
         disabled={!transport.audioReady}
         onClick={transport.onStop}
       />

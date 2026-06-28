@@ -159,6 +159,109 @@ function applyEnergyDensity(organism: Organism, energy: number): void {
   );
 }
 
+/** Map tone slider (0–100) to harmonic highlight nodes around the center. */
+function applyToneHighlight(organism: Organism, tone: number): void {
+  if (tone < 25) {
+    return;
+  }
+
+  const spread = tone >= 70 ? 2 : 1;
+
+  organism.addEdge(
+    new Edge({
+      id: 'e-tone-halo',
+      from: 'center',
+      to: 'center',
+      kind: 'harmonic',
+      pathGlyphs: [
+        { x: CENTER_X - spread, y: CENTER_Y - 1, symbol: GRAMMAR_SYMBOLS.softParticle },
+        { x: CENTER_X + spread, y: CENTER_Y - 1, symbol: GRAMMAR_SYMBOLS.softParticle },
+        { x: CENTER_X - spread, y: CENTER_Y + 1, symbol: GRAMMAR_SYMBOLS.softParticle },
+        { x: CENTER_X + spread, y: CENTER_Y + 1, symbol: GRAMMAR_SYMBOLS.softParticle },
+      ],
+    }),
+  );
+}
+
+/** Map texture slider (0–100) to low/medium/high density bands. */
+function applyTextureDensity(organism: Organism, texture: number): void {
+  if (texture < 20) {
+    return;
+  }
+
+  const symbol =
+    texture >= 70
+      ? GRAMMAR_SYMBOLS.densityHigh
+      : texture >= 45
+        ? GRAMMAR_SYMBOLS.densityMedium
+        : GRAMMAR_SYMBOLS.densityLow;
+
+  organism.addEdge(
+    new Edge({
+      id: 'e-texture-band',
+      from: 'stem',
+      to: 'stem',
+      kind: 'signalFlow',
+      pathGlyphs: [
+        { x: CENTER_X - 2, y: CENTER_Y + 2, symbol },
+        { x: CENTER_X, y: CENTER_Y + 2, symbol },
+        { x: CENTER_X + 2, y: CENTER_Y + 2, symbol },
+      ],
+    }),
+  );
+}
+
+/** Map growth slider (0–100) to an upward reach segment. */
+function applyGrowthReach(organism: Organism, growthRate: number): void {
+  if (growthRate < 35) {
+    return;
+  }
+
+  organism.addEdge(
+    new Edge({
+      id: 'e-growth-reach',
+      from: 'apex',
+      to: 'apex',
+      kind: 'energyTransfer',
+      pathGlyphs: [
+        { x: CENTER_X, y: CENTER_Y - 3, symbol: GRAMMAR_SYMBOLS.vertical },
+        ...(growthRate >= 65
+          ? [{ x: CENTER_X, y: CENTER_Y - 4, symbol: GRAMMAR_SYMBOLS.active }]
+          : []),
+      ],
+    }),
+  );
+}
+
+/** Map drift slider (0–100) to asymmetric soft-particle offsets. */
+function applyDriftAsymmetry(organism: Organism, drift: number): void {
+  if (drift < 20) {
+    return;
+  }
+
+  const offset = drift >= 60 ? 2 : 1;
+
+  organism.addEdge(
+    new Edge({
+      id: 'e-drift-left',
+      from: 'branch-left',
+      to: 'branch-left',
+      kind: 'modulation',
+      pathGlyphs: [{ x: CENTER_X - 3 - offset, y: CENTER_Y - 1, symbol: GRAMMAR_SYMBOLS.softParticle }],
+    }),
+  );
+
+  organism.addEdge(
+    new Edge({
+      id: 'e-drift-right',
+      from: 'branch-right',
+      to: 'branch-right',
+      kind: 'modulation',
+      pathGlyphs: [{ x: CENTER_X + 3 + offset, y: CENTER_Y + 1, symbol: GRAMMAR_SYMBOLS.softParticle }],
+    }),
+  );
+}
+
 /** Map mutation slider (0–100) to visible ╳ disruptions at branch hub. */
 function applyMutationDisruption(organism: Organism, mutation: number): void {
   if (mutation < 20) {
@@ -276,13 +379,26 @@ export function createOrganismForParams(params: OrganismVisualParams): Organism 
   applyEnergyDensity(organism, params.energy);
   applyMutationDisruption(organism, params.mutation);
   applyBloomShape(organism, params.bloom);
+  applyToneHighlight(organism, params.tone);
+  applyTextureDensity(organism, params.texture);
+  applyGrowthReach(organism, params.growthRate);
+  applyDriftAsymmetry(organism, params.drift);
 
   return organism;
 }
 
 /** @deprecated Use createOrganismForParams */
 export function createOrganismForVisualState(state: InstrumentVisualState): Organism {
-  return createOrganismForParams({ visualState: state, energy: 0, mutation: 0, bloom: 0 });
+  return createOrganismForParams({
+    visualState: state,
+    energy: 0,
+    mutation: 0,
+    bloom: 0,
+    tone: 0,
+    texture: 0,
+    growthRate: 0,
+    drift: 0,
+  });
 }
 
 export function visualStateIndicator(state: InstrumentVisualState): string {

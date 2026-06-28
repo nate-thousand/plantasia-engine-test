@@ -14,7 +14,6 @@ export function SoundControls({ sound, audioReady }: SoundControlsProps) {
         label="Volume"
         value={sound.values.volume}
         disabled={!audioReady}
-        placeholder
         onChange={(value) => sound.onChange('volume', value)}
       />
       <ControlSlider
