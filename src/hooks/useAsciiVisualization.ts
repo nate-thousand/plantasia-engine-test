@@ -442,7 +442,7 @@ export function useAsciiVisualization(props: AsciiVisualizationProps = {}) {
 
       const domEnd = performance.now();
       let pixiMs = 0;
-      const pixiContainer = backend.getPixiGlyphContainer?.() ?? null;
+      const pixiContainer = backend?.getPixiGlyphContainer?.() ?? null;
       if (pixiContainer) {
         gsapChoreographyRef.current?.tickAmbientChoreography(
           ambientActive,
