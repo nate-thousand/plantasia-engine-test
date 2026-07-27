@@ -1,8 +1,10 @@
-# Plantasia Engine Test
+# Plantasia Engine Playground
 
 **Version: v1.2** · see [`VERSION`](./VERSION)
 
-Playground application for experimenting with [plantasia-sound-engine](https://github.com/nate-thousand/plantasia-sound-engine). Fullscreen visual instrument with keyboard and MIDI input.
+Playground application for experimenting with [plantasia-sound-engine](https://github.com/nate-thousand/plantasia-sound-engine).
+
+**[Launch the live playground](https://plantasia-engine-test.vercel.app/)** Fullscreen visual instrument with keyboard and MIDI input.
 
 This repository is **not** the sound engine. Synthesis, presets, and Tone.js graph logic live in the separate `plantasia-sound-engine` package and are consumed here as a dependency.
 
@@ -136,3 +138,4 @@ Akai MPK Mini devices use an additional CC 1–8 knob fallback when the device n
 ## License
 
 Private — foundation phase.
+
